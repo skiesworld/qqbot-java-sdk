@@ -319,29 +319,51 @@ src/main/java/io/github/skiesworld/qqbot/
    给组织安装 "Sonatype Nexus" GitHub App 完成验证（拥有 skiesworld.dev 之类域名时也可用 DNS TXT），
    然后生成 **user token**。release 作业会核对：`GROUP` 的 GitHub 账号 == 仓库 owner、
    `POM_URL` == `https://github.com/<POM_GITHUB_REPOSITORY>`、且 `gradle.properties` 里没有 `TODO` 残留。
-2. **准备签名私钥**，一条无口令或已知口令的 ed25519/RSA 密钥均可：
+2. **准备签名密钥**。用 RSA 4096（`RSA (sign only)`），口令可选：
+
    ```bash
-   gpg --full-generate-key                       # 或导入既有密钥
-   gpg --keyid-format short --list-secret-keys   # 记下 8 位 key id
-   gpg --export-secret-keys --armor <keyid> > private.asc
+   gpg --full-generate-key                                  # 邮箱要与 Central 账号一致
+   gpg --send-keys <完整指纹>                               # 或到 keys.openpgp.org 网页上传公钥
+   gpg --armor --export <keyid> > public.asc                # 上传公钥用
+   gpg --pinentry-mode loopback --export-secret-keys --armor <keyid> > private.asc
    ```
+
+   公钥**必须**在公网可取：Central Portal 只用可获取到的公钥校验随产物上传的 `.asc`，取不到就是签名校验失败。
+   用 keys.openpgp.org 时要点掉它发的邮箱确认链接，否则 user id 不公开。私钥文本只进 Secrets，别提交进仓库。
 3. **配置仓库 Secrets**（Settings → Secrets and variables → Actions）：
 
 | Secret | 对应 Gradle 属性 | 内容 |
 | --- | --- | --- |
 | `MAVEN_CENTRAL_USERNAME` | `mavenCentralUsername` | Central Portal user token 的用户名 |
 | `MAVEN_CENTRAL_PASSWORD` | `mavenCentralPassword` | 对应 token |
-| `SIGNING_KEY` | `signingInMemoryKey` | `private.asc` 全文（含 BEGIN/END 行） |
-| `SIGNING_KEY_ID` | `signingInMemoryKeyId` | 8 位 key id（可选） |
-| `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyPassword` | 密钥口令，无口令留空 |
+| `MAVEN_GPG_PRIVATE_KEY` | `signingInMemoryKey` | `gpg --export-secret-keys --armor <id>` 全文（含 BEGIN/END 行） |
+| `MAVEN_GPG_PASSPHRASE` | `signingInMemoryKeyPassword` | 密钥口令，无口令留空 |
 
-本地演练（不上传）可以随时验证 POM 与产物是否齐备：
+本地演练可以随时验证 POM 与产物是否齐备：
 
 ```bash
-./gradlew generatePomFileForMavenPublication   # 生成 build/publications/maven/pom-default.xml
-./gradlew assemble plainJavadocJar -PVERSION_NAME=0.0.1-test
-# 有密钥但没有 Central 账号时，可发到本地仓库看目录结构：
-./gradlew publishToMavenLocal -PVERSION_NAME=0.0.1-test && ls ~/.m2/repository/io/github/skiesworld/
+./gradlew generatePomFileForMavenPublication assemble plainJavadocJar -PVERSION_NAME=0.0.1-check
+cat build/publications/maven/pom-default.xml      # name/description/url/licenses/scm/developers 都要在
+```
+
+签名不能被跳过：publication 里已经登记了 `.asc` 构件，`-x signMavenPublication` 会让
+`publishToMavenLocal` 反过来报 "artifact file does not exist: ...jar.asc"。所以要本地走一遍上传，
+就把私钥临时放进 `~/.gradle/gradle.properties`（**不是**项目里），并且用一个一次性版本号——
+Central 的版本号不可复用也不可撤回：
+
+```properties
+# ~/.gradle/gradle.properties
+signingInMemoryKey=-----BEGIN PGP PRIVATE KEY BLOCK-----\n...\n-----END PGP PRIVATE KEY BLOCK-----
+signingInMemoryKeyId=<完整指纹>
+signingInMemoryKeyPassword=<口令，无口令留空>
+mavenCentralUsername=<user token 用户名>
+mavenCentralPassword=<user token 密码>
+```
+
+```bash
+./gradlew publishToMavenLocal -PVERSION_NAME=0.0.0-localcheck                      # 只签名+落本地
+./gradlew publishToMavenCentral -PVERSION_NAME=0.0.0-centralcheck \
+  -PmavenCentralAutomaticPublishing=false --no-configuration-cache                 # 上传+校验但不 release
 ```
 
 版本号只来自 tag：工作流用 `-PVERSION_NAME=${tag#v}` 覆盖 `gradle.properties` 里的值。
