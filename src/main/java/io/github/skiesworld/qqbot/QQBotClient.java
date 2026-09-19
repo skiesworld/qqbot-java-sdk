@@ -1,6 +1,8 @@
 package io.github.skiesworld.qqbot;
 
 import io.github.skiesworld.qqbot.api.Api;
+import io.github.skiesworld.qqbot.callback.WebhookHandler;
+import io.github.skiesworld.qqbot.callback.WebhookServer;
 import io.github.skiesworld.qqbot.command.CommandRegistry;
 import io.github.skiesworld.qqbot.event.EventBus;
 import io.github.skiesworld.qqbot.handler.HandlerRegistry;
@@ -14,15 +16,15 @@ import io.github.skiesworld.qqbot.websocket.Intent;
 import java.io.Closeable;
 
 /**
- * Entry point tying the pieces together: typed OpenAPI calls, the event gateway, rich-media uploads
- * and the listener registry.
+ * Entry point tying the pieces together: typed OpenAPI calls, the event bus, whichever inbound transport
+ * {@link BotConfig#transport()} selects, rich-media uploads and the handler registries.
  *
  * <pre>{@code
  * try (QQBotClient bot = QQBotClient.create("APPID", "SECRET")) {
  *     bot.events().on(io.github.skiesworld.qqbot.event.EventType.C2C_MESSAGE_CREATE, event ->
  *             bot.api().c2c().sendC2CMessage(event.targetId(),
  *                     io.github.skiesworld.qqbot.model.request.SendC2CMessageRequest.text("pong")));
- *     bot.connect();
+ *     bot.connect();      // or bot.start(), which follows the configured transport
  * }
  * }</pre>
  */
@@ -34,6 +36,8 @@ public final class QQBotClient implements Closeable {
     private final Api api;
     private final MediaUploader media;
     private volatile Gateway gateway;
+    private volatile WebhookHandler webhook;
+    private volatile WebhookServer webhookServer;
     private volatile HandlerRegistry handlers;
     private volatile CommandRegistry commands;
     private final java.util.concurrent.atomic.AtomicBoolean gatewayStarted =
@@ -126,6 +130,56 @@ public final class QQBotClient implements Closeable {
         return g;
     }
 
+    /**
+     * Bring the inbound side up the way {@link BotConfig#transport()} says: open the gateway for
+     * {@link BotConfig.Transport#WEBSOCKET}, bind the callback endpoint for {@link BotConfig.Transport#WEBHOOK}.
+     * Whatever this starts is stopped by {@link #close()}.
+     *
+     * <p>Calling {@link #connect()} or {@link #webhookServer()} directly instead is how you opt into one of them
+     * regardless of the configured transport — both at once works too, since they share this client's event bus.
+     */
+    public QQBotClient start() throws java.io.IOException {
+        if (config.transport() == BotConfig.Transport.WEBHOOK) {
+            webhookServer();
+        } else {
+            connect();
+        }
+        return this;
+    }
+
+    /** The callback verifier and dispatcher; mount {@link WebhookHandler#handle} in your own HTTP server. */
+    public WebhookHandler webhook() {
+        WebhookHandler h = webhook;
+        if (h == null) {
+            synchronized (this) {
+                if (webhook == null) {
+                    webhook = new WebhookHandler(config.botSecret(), config.appId(), events);
+                }
+                h = webhook;
+            }
+        }
+        return h;
+    }
+
+    /**
+     * This bot's own callback endpoint, bound on first call. Several bots normally share one
+     * {@link WebhookServer} instead of one port each: {@code endpoint.mount(bot)} routes it by app id and keeps
+     * each bot's verification and bus separate.
+     */
+    public WebhookServer webhookServer() throws java.io.IOException {
+        WebhookServer s = webhookServer;
+        if (s == null) {
+            synchronized (this) {
+                if (webhookServer == null) {
+                    webhookServer = new WebhookServer(config.webhookHost(), config.webhookPort())
+                            .start().mount(this);
+                }
+                s = webhookServer;
+            }
+        }
+        return s;
+    }
+
     /** Open the event gateway without blocking; returns once the socket has been requested. */
     public Gateway connect() {
         Gateway g = gateway();
@@ -137,6 +191,10 @@ public final class QQBotClient implements Closeable {
 
     /** Connect and wait for the READY dispatch, useful for command line bots and smoke tests. */
     public Gateway connectAndAwaitReady(long timeoutMillis) throws InterruptedException {
+        if (config.transport() == BotConfig.Transport.WEBHOOK) {
+            throw new IllegalStateException("this bot is configured for " + BotConfig.Transport.WEBHOOK
+                    + " callbacks, which have no gateway READY to wait for; call start() instead");
+        }
         Gateway g = connect();
         if (!g.awaitConnected(timeoutMillis)) {
             throw new io.github.skiesworld.qqbot.error.QQBotException("gateway did not connect within "
@@ -155,6 +213,10 @@ public final class QQBotClient implements Closeable {
         Gateway g = gateway;
         if (g != null) {
             g.close();
+        }
+        WebhookServer s = webhookServer;
+        if (s != null) {
+            s.close();
         }
         transport.close();
     }

@@ -12,11 +12,34 @@ public final class BotConfig {
     public static final String DEFAULT_API_BASE = "https://api.bot.qq.com";
     public static final String TOKEN_PATH = "/app/getAppAccessToken";
 
+    /** The only ports the platform accepts a callback url on are 80, 443, 8080 and 8443. */
+    public static final int DEFAULT_WEBHOOK_PORT = 8080;
+    /** A bot's route is this prefix plus its app id, so several bots can share one listening port. */
+    public static final String WEBHOOK_PATH_PREFIX = "/qq";
+
+    /**
+     * How the bot is reached. Both deliver into the same {@link io.github.skiesworld.qqbot.event.EventBus};
+     * only the ingress differs, so listeners, handlers and commands are written once either way.
+     */
+    public enum Transport {
+
+        /** Outbound gateway websocket: identify, heartbeat, resume after a drop. */
+        WEBSOCKET,
+
+        /** The platform POSTs callbacks to a public url and every request is verified against the bot secret. */
+        WEBHOOK
+    }
+
     private final String appId;
     private final String clientSecret;
     private final String staticAccessToken;
     private final String apiBase;
     private final String wsUrl;
+    private final Transport transport;
+    private final String botSecret;
+    private final String webhookHost;
+    private final int webhookPort;
+    private final String webhookPath;
     private final long intents;
     private final int shardId;
     private final int shardCount;
@@ -38,6 +61,22 @@ public final class BotConfig {
         this.staticAccessToken = b.staticAccessToken;
         this.apiBase = Strings.isBlank(b.apiBase) ? DEFAULT_API_BASE : trimTrailingSlash(b.apiBase);
         this.wsUrl = b.wsUrl;
+        this.transport = b.transport == null ? Transport.WEBSOCKET : b.transport;
+        this.botSecret = Strings.isBlank(b.botSecret) ? b.clientSecret : b.botSecret;
+        this.webhookHost = Strings.isBlank(b.webhookHost) ? "0.0.0.0" : b.webhookHost;
+        this.webhookPort = b.webhookPort;
+        this.webhookPath = webhookPath(b.webhookPath, b.appId);
+        if (transport == Transport.WEBHOOK) {
+            if (b.webhookPort < 0 || b.webhookPort > 65_535) {
+                throw new IllegalArgumentException("webhookPort " + b.webhookPort + " is not a bindable port");
+            }
+            if (Strings.isBlank(this.botSecret)) {
+                throw new IllegalArgumentException("transport WEBHOOK verifies every callback, so botSecret"
+                        + " (or clientSecret) is required");
+            }
+        } else if (b.webhookPort != DEFAULT_WEBHOOK_PORT) {
+            throw new IllegalArgumentException("webhookPort is only meaningful with transport WEBHOOK");
+        }
         this.intents = b.intents;
         this.shardId = b.shardId;
         this.shardCount = Math.max(1, b.shardCount);
@@ -64,12 +103,46 @@ public final class BotConfig {
         return v.endsWith("/") ? v.substring(0, v.length() - 1) : v;
     }
 
+    /**
+     * Callback paths always start with one slash and never end with one. Left unset a bot is addressed as
+     * {@code /qq/{appId}}, which is what lets one endpoint serve many bots.
+     */
+    private static String webhookPath(String configured, String appId) {
+        String path = Strings.isBlank(configured) ? WEBHOOK_PATH_PREFIX + "/" + appId : configured.trim();
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return path.length() == 1 ? path : trimTrailingSlash(path);
+    }
+
     public String appId() {
         return appId;
     }
 
     public String clientSecret() {
         return clientSecret;
+    }
+
+    /** The key callbacks are signed with; the platform calls it the Bot Secret and it is usually the app secret. */
+    public String botSecret() {
+        return botSecret;
+    }
+
+    public Transport transport() {
+        return transport;
+    }
+
+    public String webhookHost() {
+        return webhookHost;
+    }
+
+    public int webhookPort() {
+        return webhookPort;
+    }
+
+    /** This bot's route on a shared webhook endpoint, e.g. {@code /qq/100000000}. */
+    public String webhookPath() {
+        return webhookPath;
     }
 
     /** Pre-issued access token; when set the SDK never calls the token endpoint. */
@@ -157,6 +230,11 @@ public final class BotConfig {
         b.staticAccessToken = staticAccessToken;
         b.apiBase = apiBase;
         b.wsUrl = wsUrl;
+        b.transport = transport;
+        b.botSecret = botSecret;
+        b.webhookHost = webhookHost;
+        b.webhookPort = webhookPort;
+        b.webhookPath = webhookPath;
         b.intents = intents;
         b.shardId = shardId;
         b.shardCount = shardCount;
@@ -180,6 +258,11 @@ public final class BotConfig {
         private String staticAccessToken;
         private String apiBase;
         private String wsUrl;
+        private Transport transport;
+        private String botSecret;
+        private String webhookHost;
+        private int webhookPort = DEFAULT_WEBHOOK_PORT;
+        private String webhookPath;
         private long intents;
         private int shardId;
         private int shardCount = 1;
@@ -217,6 +300,37 @@ public final class BotConfig {
 
         public Builder wsUrl(String v) {
             this.wsUrl = v;
+            return this;
+        }
+
+        /** Which inbound channel this bot uses; {@link Transport#WEBSOCKET} unless you say otherwise. */
+        public Builder transport(Transport v) {
+            this.transport = Objects.requireNonNull(v, "transport");
+            return this;
+        }
+
+        /** Key callbacks are signed with. Defaults to {@link #clientSecret(String)}. */
+        public Builder botSecret(String v) {
+            this.botSecret = v;
+            return this;
+        }
+
+        /** Interface to bind the built-in callback endpoint to; ignored by {@link #webhook(int, String)}. */
+        public Builder webhookHost(String v) {
+            this.webhookHost = v;
+            return this;
+        }
+
+        /**
+         * Switch to {@link Transport#WEBHOOK} and where to listen <em>when this bot has its own endpoint</em>;
+         * several bots normally share one, see {@link io.github.skiesworld.qqbot.callback.WebhookServer#mount}.
+         * Port 0 asks the OS for a free one, which {@code bot.webhookServer().port()} then reports; the platform
+         * only accepts 80, 443, 8080 and 8443 on the public url. A null path keeps the {@code /qq/{appId}} route.
+         */
+        public Builder webhook(int port, String path) {
+            this.transport = Transport.WEBHOOK;
+            this.webhookPort = port;
+            this.webhookPath = path;
             return this;
         }
 
