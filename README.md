@@ -6,6 +6,7 @@
 - JDK：**17+**（以 `--release 17` 编译，可在 JDK 17/21 上构建）
 - 构建：Gradle（Kotlin DSL）+ Wrapper，无需本机预装 Gradle
 - 传输：OkHttp（REST + WebSocket），序列化：Gson
+- 组织方式：`@BotEvent` handler（可选 `ServiceLoader` 自动发现）、`MessageSegments` 读取、`@Command` 命令匹配
 
 ## 安装
 
@@ -13,7 +14,7 @@
 // build.gradle.kts
 dependencies {
     // groupId 取决于你在 gradle.properties 里设置的 GROUP，见「发布与 CI」
-    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.1")
+    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.2")
 }
 ```
 
@@ -71,6 +72,8 @@ QQBotClient bot = QQBotClient.create(config);
 
 ## 三种接收事件的方式
 
+传输有三条（网关、进程内监听、Webhook），业务代码怎么组织是另一件事：见 [用注解组织机器人逻辑](#用注解组织机器人逻辑)。
+
 ### 1. WebSocket 网关（默认）
 
 ```java
@@ -124,6 +127,72 @@ String responseBody = handler.handle(rawBody,
 ```
 
 验签规则与官方一致：以 Bot Secret 重复填充出 32 字节 seed 派生 Ed25519 密钥，签名体为 `timestamp + body`。验签失败抛 `SignatureException`，请务必当作拒绝处理。
+
+## 用注解组织机器人逻辑
+
+监听器适合一两个事件，机器人长大了更好用的是「一个类，一个方法一个事件」：
+
+```java
+@BotHandlers("chat")
+public class ChatHandlers implements BotHandler {
+
+    @BotEvent(EventType.C2C_MESSAGE_CREATE)
+    public void onPrivate(C2CMessageCreate msg, QQEvent raw) { }      // payload + 信封
+
+    @BotEvent({EventType.FRIEND_ADD, EventType.FRIEND_DEL})
+    public void onFriendToggle(QQEvent raw, Api api) { }             // 一个方法多个事件
+
+    @BotEvent(name = "GROUP_SOMETHING_NEW")                            // 尚未建模的事件名
+    public void onFuture(JsonObject body) { }
+}
+
+bot.handlers().register(new ChatHandlers());     // 反射装配，编译期不需要任何处理器
+bot.events().register(new ChatHandlers());       // 同样可用，只是没有 client 可注入
+```
+
+参数按类型注入：`QQEvent`、`EventType`、`JsonObject`/`JsonElement`、`Api`、`QQBotClient`，其余引用类型一律当 payload 反序列化。绑定不了的（基本类型、数组、没有 client 却声明 `Api`）在 **注册时** 就抛 `IllegalArgumentException`，不会等到第一条消息才暴露；payload 缺失或对不上号时跳过这次调用并打 debug 日志，用户代码的异常也永远到不了网关线程。
+
+想让别人写的 handler 自动被找到，就让它实现 `BotHandler`（无方法的标记接口）并带上 `@BotHandlers`，由本 SDK 自带的注解处理器生成 `META-INF/services` 清单，运行时 `bot.handlers().registerDiscovered()` 用 `ServiceLoader` 装配——不在运行时扫 classpath，因此 MC 模组那种嵌套 classloader/shade 环境下同样可预期。JDK 21+ 需在消费者构建里显式开启注解处理（`-proc:full` 或配置 `--processor-path`）；不启用处理器时，上面那两行 register 完全够用。
+
+### 消息段与出站构造
+
+`MessageSegments` 把收到的消息读成段序列，`MessageBuilder` 把要发的内容降级到各场景真正支持的字段：
+
+```java
+MessageSegments msg = MessageSegments.of(event);
+msg.text();                                   // content 原文
+msg.segmentsOfType(Segment.Media.class);       // 图片/视频/语音/文件，按 content_type 定型
+msg.card();                                   // ark_data（message_type=3）
+msg.elements();                               // msg_elements（103 引用、102 聊天记录），可递归
+
+bot.api().c2c().sendC2CMessage(openid, MessageBuilder.of("你好").replyTo(event).seq(1L).toC2C());
+bot.api().group().sendGroupMessage(groupOpenid, MessageBuilder.create().media(fileInfo).replyTo(event)
+        .seq(2L).toGroup());                  // msg_type=7
+bot.api().channelMessages().sendChannelMessage(channelId, MessageBuilder.create().ark(card).toChannel());
+```
+
+要清楚两件事：官方 payload 里文本与附件是**平级字段**，`content` 中没有任何占位符或偏移能告诉你图片原本插在句子的哪里，所以段序列是字段的分组而非气泡的复原；子频道/私信的发送体没有 `msg_type`（图片走 `image` URL、卡片走 `ark`），把富媒体 `file_info` 或 `keyboard` 交给 `toChannel()` 会直接抛异常，而不是发一个平台必拒的请求。没被 builder 覆盖的字段（`embed`、`input_notify`、模板 markdown）仍可改返回对象的 public 字段。
+
+### 命令匹配与角色
+
+命令层就是「事件监听 + 文本匹配」，所以 handler 能同时拿到 payload 与匹配结果：
+
+```java
+@Command(value = {"签到", "checkin"}, description = "每日签到")
+public void checkIn(CommandContext ctx) {
+    ctx.reply("已签到 " + ctx.args());                     // 回到来源会话，msg_seq 自动递增
+}
+
+@Command(value = "mute (\\S+) (\\d+)", kind = Command.Kind.REGEX, role = Role.ADMIN)
+public void mute(CommandContext ctx) {
+    mute(ctx.groups().get(0), Long.parseLong(ctx.groups().get(1)));   // 捕获组按 0 起下标
+}
+
+bot.commands().usePrefixes("/", "").register(new AdminCommands());
+bot.commands().describe();                                   // 给 /help 用的一行一条
+```
+
+默认不需要前缀（群消息本就必须 @ 机器人，且平台已把该 mention 从 `content` 中剥掉），`usePrefixes("/")` 之后没带前缀的消息不再匹配。`role` 比较的是群里 `author.member_role`（member < admin < owner）；单聊与私信不报角色，那里角色门不起作用——只按角色限制群命令，别指望它在私聊里挡住谁。只匹配 `content`，纯图片/卡片消息不会触发命令，用 `CommandContext#segments()` 读它们。
 
 ## 接口调用
 
@@ -212,16 +281,19 @@ try {
 ## 目录结构
 
 ```
-src/main/java/io/github/qqbot/
-├── QQBotClient          入口：api() / events() / gateway() / media()
+src/main/java/io/github/skiesworld/qqbot/
+├── QQBotClient          入口：api() / events() / handlers() / commands() / gateway() / media()
 ├── BotConfig            appId、密钥、intents、分片、超时与重试
 ├── api                  按官方模块分组的接口方法 + endpoint/Endpoints 常量
 ├── auth                 access_token 获取与缓存刷新
 ├── callback             Webhook：Ed25519 验签、地址校验
+├── command              @Command / CommandContext / CommandRegistry / Role
 ├── error                异常与网关关闭码
 ├── event                EventType / QQEvent / EventBus
+├── handler              @BotHandlers / @BotEvent / HandlerRegistry + 可选注解处理器
 ├── http                 Endpoint / Params / HttpTransport（鉴权、退避、err_code）
 ├── media                富媒体分片上传
+├── message              MessageSegments / Segment / MessageBuilder / ReplyTarget / ReplySequence
 ├── model                官方数据结构（生成）+ model/request 请求体 + model/constant 取值表
 ├── examples             可运行示例（不依赖额外日志/框架，见下节）
 ├── util                 Json、Strings、Digests
@@ -306,6 +378,7 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 | `GuildBot` | 频道 AT 消息 Markdown 回复、表情表态、置顶、列出频道与子频道 |
 | `StreamingBot` | 流式回复：首片由服务端返回 `stream_msg_id`，`index` 递增，`input_state=10` 收尾 |
 | `MediaSendBot` | 本地文件分片上传 → `file_info` → `msg_type=7` 发送 |
+| `HandlerBot` | 注解 handler（按类型注入参数）、消息段读取、`@Command` 命令与角色限制 |
 | `WebhookServer` | HTTP 回调模式：JDK 自带 HttpServer + 验签 + opcode 13 地址校验 |
 
 `QQ_API_BASE` 可指向沙箱或本地桩，`QQ_DEMO_FILE` 指定 `MediaSendBot` 上传的文件。
@@ -313,11 +386,11 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 ## 测试
 
 ```bash
-./gradlew test           # 111 个离线测试
+./gradlew test           # 164 个离线测试
 ./gradlew build          # 编译 + 测试 + jar + sources + javadoc
 ```
 
-测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账。
+测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、注解 handler 的参数绑定与注册期报错、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组与角色门。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
 
 ## 已知边界
 
@@ -326,6 +399,8 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 - 频控由平台侧执行；SDK 侧策略是 `Retry-After` + 指数退避 + 401 单次换证，不内置本地令牌桶。
 - 官方文档的「小程序」章节（应用子频道开放数据域、`getGuildAndUserinfo` 等）描述的是运行在 QQ 客户端 JS 侧的能力，不属于服务端 OpenAPI，故不在本 SDK 范围内；与之相关的服务端消息类型（Ark / Embed / 模板 Markdown）均已覆盖。
 - 文档未给响应体的操作（如 `PUT /interactions/{interaction_id}`）返回 `void`，失败仍以 `ApiException` 抛出。
+- 收到的消息里文本与附件是平级字段，`content` 内没有占位符或偏移，因此 `MessageSegments` 只能给出「文本 + 提及 + 附件 + 卡片」的字段分组，不会假装还原气泡内的排布；子频道/私信发送体也没有 `msg_type` 与 `msg_seq` 字段，富媒体与键盘在该场景不可用（`toChannel()` 会明确拒绝）。
+- `Role` 只能依据群场景上报的 `author.member_role`；单聊、私信与官方未给 `member_role` 的事件视为「无角色」，角色门在那里不生效。
 - 事件模型覆盖官方给出载荷结构的 22 个事件，以及文档写明「内容为 Message / MessageAudited / MessageReaction 对象」的频道事件（`AT_MESSAGE_CREATE`、`MESSAGE_CREATE`、`DIRECT_MESSAGE_CREATE`、`MESSAGE_AUDIT_*`、`MESSAGE_REACTION_*`）。`GUILD_MEMBER_*`、`FORUM_*`、`AUDIO_*`、`MESSAGE_DELETE` 等官方只在 Intents 表里列出名字、未给事件体结构，SDK 仍会投递，请用 `event.raw()` / `onName(...)` 读取，不要假设字段。
 
 ## License

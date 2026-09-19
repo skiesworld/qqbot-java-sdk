@@ -68,6 +68,17 @@ public final class EventBus {
         return () -> wildcard.remove(listener);
     }
 
+    /**
+     * Register every {@link io.github.skiesworld.qqbot.handler.BotEvent} method of {@code handler}, with
+     * parameters filled by type.
+     *
+     * <p>{@code Api}/{@code QQBotClient} parameters need the client and therefore cannot be bound through this
+     * entry point; use {@code bot.handlers().register(handler)} for those.
+     */
+    public Subscription register(Object handler) {
+        return new io.github.skiesworld.qqbot.handler.HandlerRegistry(this).register(handler);
+    }
+
     public int listenerCount() {
         int n = wildcard.size();
         for (List<Consumer<QQEvent>> l : typed.values()) {

@@ -36,6 +36,10 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(17)
+    // The SDK jar carries its own annotation processor, and Gradle also puts the main output on the test
+    // compile classpath, so without this every consumer-facing processor would be discovered here too.
+    // Consumers opt in through their own build; this project never runs its own processor at compile time.
+    options.compilerArgs.add("-proc:none")
 }
 
 tasks.withType<Javadoc>().configureEach {

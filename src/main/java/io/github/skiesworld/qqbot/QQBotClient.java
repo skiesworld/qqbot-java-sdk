@@ -1,7 +1,9 @@
 package io.github.skiesworld.qqbot;
 
 import io.github.skiesworld.qqbot.api.Api;
+import io.github.skiesworld.qqbot.command.CommandRegistry;
 import io.github.skiesworld.qqbot.event.EventBus;
+import io.github.skiesworld.qqbot.handler.HandlerRegistry;
 import io.github.skiesworld.qqbot.http.Endpoint;
 import io.github.skiesworld.qqbot.http.HttpTransport;
 import io.github.skiesworld.qqbot.http.Params;
@@ -32,6 +34,8 @@ public final class QQBotClient implements Closeable {
     private final Api api;
     private final MediaUploader media;
     private volatile Gateway gateway;
+    private volatile HandlerRegistry handlers;
+    private volatile CommandRegistry commands;
     private final java.util.concurrent.atomic.AtomicBoolean gatewayStarted =
             new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -75,6 +79,37 @@ public final class QQBotClient implements Closeable {
 
     public MediaUploader media() {
         return media;
+    }
+
+    /**
+     * Annotated-handler registry bound to this client, so handler methods can ask for {@link Api} or this
+     * client as a parameter.
+     */
+    public HandlerRegistry handlers() {
+        HandlerRegistry h = handlers;
+        if (h == null) {
+            synchronized (this) {
+                if (handlers == null) {
+                    handlers = new HandlerRegistry(events, this);
+                }
+                h = handlers;
+            }
+        }
+        return h;
+    }
+
+    /** Command matching on top of the message events; see {@link CommandRegistry}. */
+    public CommandRegistry commands() {
+        CommandRegistry c = commands;
+        if (c == null) {
+            synchronized (this) {
+                if (commands == null) {
+                    commands = new CommandRegistry(this);
+                }
+                c = commands;
+            }
+        }
+        return c;
     }
 
     /** Lazily created gateway bound to this client's event bus. */
