@@ -25,7 +25,7 @@ import java.util.Objects;
  * <p>Passive replies carry {@code msg_id} or {@code event_id} plus a {@code msg_seq} that must be unique per
  * original message — the docs reject a repeat of the same pair, so use
  * {@link io.github.skiesworld.qqbot.command.CommandContext#reply(String)} or
- * {@link io.github.skiesworld.qqbot.command.ReplySequence} rather than reusing one sequence.
+ * {@link ReplySequence} rather than reusing one sequence.
  *
  * <p>Anything this class does not expose (an {@code embed}, an {@code input_notify}, a markdown template id) is
  * reachable by mutating the returned request: its fields are public.
