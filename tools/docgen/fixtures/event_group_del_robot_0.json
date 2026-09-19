@@ -1,0 +1,5 @@
+{
+ "event": "GROUP_DEL_ROBOT",
+ "index": 0,
+ "raw": "{\n  \"group_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"op_member_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"timestamp\": 1784570535\n}"
+}

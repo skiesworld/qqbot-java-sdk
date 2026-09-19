@@ -1,0 +1,5 @@
+{
+ "event": "GROUP_MSG_RECEIVE",
+ "index": 0,
+ "raw": "{\n  \"timestamp\": 1784276800,\n  \"group_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"op_member_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\"\n}"
+}

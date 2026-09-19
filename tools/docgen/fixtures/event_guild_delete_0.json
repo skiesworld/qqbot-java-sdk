@@ -1,0 +1,5 @@
+{
+ "event": "GUILD_DELETE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"123456789012345678\",\n  \"name\": \"测试频道\",\n  \"owner_id\": \"123456789012345678\",\n  \"icon\": \"https://thirdqq.qlogo.cn/0\",\n  \"member_count\": 10,\n  \"max_members\": 1000,\n  \"description\": \"频道描述\"\n}"
+}

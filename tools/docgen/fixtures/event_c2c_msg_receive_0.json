@@ -1,0 +1,5 @@
+{
+ "event": "C2C_MSG_RECEIVE",
+ "index": 0,
+ "raw": "{\n  \"openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"timestamp\": 1784570617\n}"
+}

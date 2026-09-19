@@ -1,0 +1,6 @@
+# sources are authored on Windows and built on Linux runners; keep LF everywhere
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.jpg binary

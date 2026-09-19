@@ -1,0 +1,5 @@
+{
+ "event": "FRIEND_ADD",
+ "index": 0,
+ "raw": "{\n  \"openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"timestamp\": 1784570523,\n  \"scene\": 1001,\n  \"scene_param\": \"\",\n  \"author\": {\n    \"union_openid\": \"DB85A74E07BA08B5B44CD9ED332FCBD2\"\n  }\n}"
+}

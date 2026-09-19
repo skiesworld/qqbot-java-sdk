@@ -1,0 +1,1109 @@
+{
+  "_comment": "Curated naming table for gen_java.py. Keys of `endpoints` are 'METHOD /path-template' exactly as they appear in spec.json after example-path hygiene. `title` records the upstream Chinese title the method name was derived from. request/response may name a generated DTO, an existing shared model, 'void', or '[]Type' for a top-level array; a dotted name is used as a fully qualified type.",
+  "apiGroups": {
+    "me": "MeApi",
+    "c2c": "C2CApi",
+    "group": "GroupApi",
+    "guild": "GuildApi",
+    "channel": "ChannelApi",
+    "channelMessages": "ChannelMessageApi",
+    "channelContent": "ChannelContentApi",
+    "channelPermissions": "ChannelPermissionApi",
+    "menu": "MenuApi",
+    "panels": "PanelApi",
+    "interactions": "InteractionApi",
+    "gateway": "GatewayApi"
+  },
+  "typeAliases": {
+    "APIPermission": "ApiPermission",
+    "APIPermissionDemand": "ApiPermissionDemand",
+    "APIPermissionDemandIdentify": "ApiPermissionDemandIdentify",
+    "ARKData": "ArkData",
+    "Action": "ButtonAction",
+    "Button": "KeyboardButton",
+    "DMS": "Dms",
+    "Data": "UrlLinkData",
+    "Elem": "RichTextElem",
+    "Member": "GroupMember",
+    "MemberWithGuildID": "GuildMember",
+    "MessageAkrKv": "MessageArkKv",
+    "Modal": "ActionModal",
+    "Permission": "ActionPermission",
+    "Row": "KeyboardRow",
+    "Switch": "MenuSwitch",
+    "URLElem": "UrlElem"
+  },
+  "skipTypes": [
+    "1",
+    "AppSecret",
+    "ChannelPermissions",
+    "Embed",
+    "HTTP",
+    "Markdown",
+    "Objectchannelinfo",
+    "Objectobject",
+    "Path",
+    "Query",
+    "SessionStartLimit",
+    "WebSocket",
+    "encryptedData",
+    "messagetype",
+    "msgtype",
+    "multipartformdata",
+    "opcode",
+    "section"
+  ],
+  "scalarTypeNames": {
+    "ISO8601": "String"
+  },
+  "typeFieldOverrides": {
+    "GroupAction": {
+      "group_ids": "[]string"
+    },
+    "JoinApprovalStrategy": {
+      "group_ids": "[]string"
+    },
+    "Message": {
+      "member": "MemberWithGuildID"
+    },
+    "MessageSetting": {
+      "channel_ids": "[]string",
+      "disable_create_dm": "boolean",
+      "disable_push_msg": "boolean"
+    },
+    "Paragraph": {
+      "elems": "[]Elem"
+    },
+    "Post": {
+      "post_info": "PostInfo"
+    },
+    "Reply": {
+      "reply_info": "ReplyInfo"
+    },
+    "RichObject": {
+      "at_info": "AtInfo",
+      "channel_info": "ChannelInfo",
+      "emoji_info": "EmojiInfo",
+      "text_info": "TextInfo",
+      "url_info": "URLElem"
+    },
+    "RichText": {
+      "paragraphs": "[]Paragraph"
+    },
+    "Thread": {
+      "thread_info": "ThreadInfo"
+    }
+  },
+  "constants": {
+    "Alignment": {
+      "java": "Alignment",
+      "doc": "Rich text paragraph alignment values (docs type Alignment); the wire carries the raw int."
+    },
+    "AtType": {
+      "java": "AtType",
+      "doc": "Elements that can be mentioned with At (docs type AtType); the wire carries the raw int."
+    },
+    "AuditType": {
+      "java": "AuditType",
+      "doc": "Forum audit result types (docs type AuditType); the wire carries the raw int."
+    },
+    "ChannelSubType": {
+      "java": "ChannelSubType",
+      "doc": "Sub-channel sub types (docs type ChannelSubType); the wire carries the raw int.",
+      "values": {
+        "CHAT": 0,
+        "NOTICE": 1,
+        "STRATEGY": 2,
+        "OPEN_BLACK": 3
+      }
+    },
+    "ChannelType": {
+      "java": "ChannelType",
+      "doc": "Sub-channel types (docs type ChannelType); the wire carries the raw int.",
+      "values": {
+        "TEXT": 0,
+        "RESERVED_1": 1,
+        "VOICE": 2,
+        "RESERVED_3": 3,
+        "CATEGORY": 4,
+        "LIVE": 10005,
+        "APP": 10006,
+        "FORUM": 10007
+      }
+    },
+    "DefaultRoleIDsID": {
+      "java": "DefaultRoleIds",
+      "doc": "Default guild role ids (docs type DefaultRoleIDsID); the wire carries the raw id as a string.",
+      "values": {
+        "EVERYONE": 1,
+        "ADMIN": 2,
+        "OWNER": 4,
+        "SUBCHANNEL_ADMIN": 5
+      }
+    },
+    "ElemType": {
+      "java": "ElemType",
+      "doc": "Rich text element types (docs type ElemType); the wire carries the raw int."
+    },
+    "EmojiType": {
+      "java": "EmojiType",
+      "doc": "Reaction emoji types (docs type EmojiType); the wire carries the raw int.",
+      "values": {
+        "SYSTEM": 1,
+        "EMOJI": 2
+      }
+    },
+    "Format": {
+      "java": "Format",
+      "doc": "Forum thread content formats (docs type Format); the wire carries the raw int."
+    },
+    "Permissions": {
+      "java": "ChannelPermissions",
+      "doc": "Sub-channel permission bit map (docs type Permissions); the wire carries a decimal string of the bit map.",
+      "values": {
+        "VIEW": 1,
+        "MANAGE": 2,
+        "SPEAK": 4
+      }
+    },
+    "PrivateType": {
+      "java": "PrivateType",
+      "doc": "Visibility of a private sub-channel (docs type PrivateType); the wire carries the raw int.",
+      "values": {
+        "PUBLIC": 0,
+        "OWNER_ADMIN": 1,
+        "OWNER_ADMIN_SPECIFIED": 2
+      }
+    },
+    "ReactionTargetType": {
+      "java": "ReactionTargetType",
+      "doc": "Targets a reaction can be attached to (docs type ReactionTargetType); the wire carries the raw int.",
+      "values": {
+        "MESSAGE": 0,
+        "THREAD": 1,
+        "POST": 2,
+        "REPLY": 3
+      }
+    },
+    "RemindType": {
+      "java": "RemindType",
+      "doc": "Schedule reminder offsets (docs type RemindType); the wire carries the raw id as a string.",
+      "values": {
+        "NONE": 0,
+        "AT_START": 1,
+        "MINUS_5": 2,
+        "MINUS_15": 3,
+        "MINUS_30": 4,
+        "MINUS_60": 5
+      }
+    },
+    "RichType": {
+      "java": "RichType",
+      "doc": "Rich text element payloads (docs type RichType); the wire carries the raw int."
+    },
+    "SpeakPermission": {
+      "java": "SpeakPermission",
+      "doc": "Who may speak in a sub-channel (docs type SpeakPermission); the wire carries the raw int.",
+      "values": {
+        "INVALID": 0,
+        "ALL": 1,
+        "OWNER_ADMIN_SPECIFIED": 2
+      }
+    },
+    "STATUS": {
+      "java": "AudioPlayStatus",
+      "doc": "Audio playback states for the sub-channel bot (docs type STATUS); the wire carries the raw int.",
+      "values": {
+        "START": 0,
+        "PAUSE": 1,
+        "RESUME": 2,
+        "STOP": 3
+      }
+    }
+  },
+  "endpoints": {
+    "GET /users/@me": {
+      "title": "获取机器人详情",
+      "group": "me",
+      "method": "getBotProfile",
+      "request": null,
+      "response": "BotProfile",
+      "doc": "Fetch the bot's own profile, including the union ids and the group share link.",
+      "responseFields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "avatar",
+          "type": "string"
+        },
+        {
+          "name": "bot",
+          "type": "boolean"
+        },
+        {
+          "name": "union_openid",
+          "type": "string"
+        },
+        {
+          "name": "union_user_account",
+          "type": "string"
+        },
+        {
+          "name": "share_url",
+          "type": "string"
+        },
+        {
+          "name": "welcome_msg",
+          "type": "string"
+        }
+      ]
+    },
+    "GET /users/@me/guilds": {
+      "title": "获取机器人频道列表",
+      "group": "me",
+      "method": "listBotGuilds",
+      "request": null,
+      "response": "GuildListResponse",
+      "doc": "List the guilds the bot has joined; page with before/after ids and a limit of 1-100."
+    },
+    "POST /users/@me/dms": {
+      "title": "创建私信会话",
+      "group": "me",
+      "method": "createDirectMessageSession",
+      "request": "CreateDmsRequest",
+      "response": "Dms",
+      "doc": "Open (or reuse) a private chat session with a user in a guild before sending direct messages."
+    },
+    "POST /v2/generate_url_link": {
+      "title": "生成分享链接",
+      "group": "group",
+      "method": "generateUrlLink",
+      "request": "GenerateUrlLinkRequest",
+      "response": "UrlLinkResponse",
+      "doc": "Generate the bot's group share link, optionally echoing callback_data back to the visitor."
+    },
+    "GET /gateway": {
+      "title": "获取 WebSocket 路径",
+      "group": "gateway",
+      "method": "fetchGateway",
+      "request": null,
+      "response": "io.github.skiesworld.qqbot.websocket.GatewayInfo",
+      "doc": "Fetch the WebSocket endpoint the bot should connect to."
+    },
+    "GET /gateway/bot": {
+      "title": "带 Shard 的 WebSocket 路径",
+      "group": "gateway",
+      "method": "fetchBotGateway",
+      "request": null,
+      "response": "io.github.skiesworld.qqbot.websocket.GatewayInfo",
+      "doc": "Fetch the WebSocket endpoint plus the recommended shard count and the session start quota.",
+      "noRequestFields": true
+    },
+    "PUT /interactions/{interaction_id}": {
+      "title": "互动事件响应",
+      "group": "interactions",
+      "method": "acknowledgeInteraction",
+      "request": null,
+      "response": "void",
+      "doc": "Acknowledge an INTERACTION_CREATE event; only button (type 11) and shortcut menu (type 12) interactions need it, and each interaction_id can be answered once before it expires."
+    },
+    "GET /v2/menu": {
+      "title": "查询全局自定义菜单",
+      "group": "menu",
+      "method": "getGlobalMenu",
+      "request": null,
+      "response": "MenuResponse",
+      "doc": "Fetch the bot's global custom menu together with its version."
+    },
+    "PUT /v2/menu": {
+      "title": "修改全局自定义菜单",
+      "group": "menu",
+      "method": "updateGlobalMenu",
+      "request": "UpdateGlobalMenuRequest",
+      "response": "MenuVersionResponse",
+      "doc": "Replace the whole global custom menu; the returned version increments on success."
+    },
+    "GET /v2/panels": {
+      "title": "查询指令面板列表",
+      "group": "panels",
+      "method": "listPanels",
+      "request": null,
+      "response": "PanelListResponse",
+      "doc": "List command panels for a scope (c2c, group, channel or dm), paginated with cursor and limit."
+    },
+    "POST /v2/panels": {
+      "title": "创建指令面板",
+      "group": "panels",
+      "method": "createPanel",
+      "request": "CreatePanelRequest",
+      "response": "CreatePanelResponse",
+      "doc": "Create a command panel and bind it to all users or to the listed user/group openids."
+    },
+    "GET /v2/panels/{panel_id}": {
+      "title": "查询指令面板详情",
+      "group": "panels",
+      "method": "getPanel",
+      "request": null,
+      "response": "PanelDetailResponse",
+      "doc": "Fetch one command panel with its items and its bound users and groups."
+    },
+    "PUT /v2/panels/{panel_id}": {
+      "title": "修改指令面板",
+      "group": "panels",
+      "method": "updatePanel",
+      "request": "UpdatePanelRequest",
+      "response": "UpdatePanelResponse",
+      "doc": "Replace the items of a command panel; the returned version is the new panel version."
+    },
+    "PUT /v2/panels/{panel_id}/target": {
+      "title": "修改指令面板关联对象",
+      "group": "panels",
+      "method": "updatePanelTarget",
+      "request": "UpdatePanelTargetRequest",
+      "response": "void",
+      "doc": "Add or remove the users (c2c scope) or groups (group scope) a panel is bound to, at most 20 openids per call; channel and dm scopes are global and do not support this."
+    },
+    "DELETE /v2/panels/{panel_id}": {
+      "title": "删除指令面板",
+      "group": "panels",
+      "method": "deletePanel",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a command panel."
+    },
+    "POST /v2/users/{user_openid}/messages": {
+      "title": "发送单聊消息",
+      "group": "c2c",
+      "method": "sendC2CMessage",
+      "request": "SendC2CMessageRequest",
+      "response": "SendMessageResponse",
+      "doc": "Send a C2C message; passive replies must carry msg_id (from C2C_MESSAGE_CREATE) or event_id, are limited to 4 answers per message and expire 5 minutes after the original event."
+    },
+    "DELETE /v2/users/{user_openid}/messages/{message_id}": {
+      "title": "撤回单聊消息",
+      "group": "c2c",
+      "method": "recallC2CMessage",
+      "request": null,
+      "response": "void",
+      "doc": "Recall a C2C message the bot sent; messages older than 2 minutes cannot be recalled and the bot may only recall its own messages."
+    },
+    "POST /v2/users/{user_openid}/stream_messages": {
+      "title": "流式发送单聊消息",
+      "group": "c2c",
+      "method": "sendC2CStreamMessage",
+      "request": "SendC2CStreamMessageRequest",
+      "response": "SendStreamMessageResponse",
+      "doc": "Push one chunk of a streamed C2C answer; keep stream_msg_id from the first response and increase index from 0, finishing with input_state 10."
+    },
+    "POST /v2/users/{user_openid}/files": {
+      "title": "单聊富媒体上传",
+      "group": "c2c",
+      "method": "uploadC2CMedia",
+      "request": "UploadMediaRequest",
+      "response": "MediaUploadResponse",
+      "doc": "Upload an image, video, voice or file to a C2C chat by url or by merging a chunked upload; the returned file_info feeds the media field of sendC2CMessage and is valid for ttl seconds."
+    },
+    "POST /v2/users/{user_id}/upload_prepare": {
+      "title": "单聊富媒体预上传",
+      "group": "c2c",
+      "method": "prepareC2CMediaUpload",
+      "request": "PrepareUploadRequest",
+      "response": "UploadPrepareResponse",
+      "doc": "Start a chunked C2C upload and receive the upload_id, the presigned part urls and the upload configuration."
+    },
+    "POST /v2/users/{user_id}/upload_part_finish": {
+      "title": "单聊分片上传完成",
+      "group": "c2c",
+      "method": "completeC2CUploadPart",
+      "request": "CompleteUploadPartRequest",
+      "response": "void",
+      "doc": "Report one finished chunk of a C2C upload; call uploadC2CMedia with the upload_id once every part is done."
+    },
+    "POST /v2/groups/{group_openid}/messages": {
+      "title": "发送群聊消息",
+      "group": "group",
+      "method": "sendGroupMessage",
+      "request": "SendGroupMessageRequest",
+      "response": "SendMessageResponse",
+      "doc": "Send a group message; passive replies must carry msg_id (from GROUP_AT_MESSAGE_CREATE or GROUP_MESSAGE_CREATE) or event_id, are limited to 5 answers within 5 minutes, and group messages do not support streaming fields."
+    },
+    "DELETE /v2/groups/{group_openid}/messages/{message_id}": {
+      "title": "撤回群聊消息",
+      "group": "group",
+      "method": "recallGroupMessage",
+      "request": null,
+      "response": "void",
+      "doc": "Recall a group message; messages older than 2 minutes cannot be recalled, and a bot that is not an administrator may only recall its own messages."
+    },
+    "POST /v2/groups/{group_openid}/files": {
+      "title": "群聊富媒体上传",
+      "group": "group",
+      "method": "uploadGroupMedia",
+      "request": "UploadMediaRequest",
+      "response": "MediaUploadResponse",
+      "doc": "Upload an image, video, voice or file to a group by url or by merging a chunked upload; the returned file_info feeds the media field of sendGroupMessage and is valid for ttl seconds."
+    },
+    "POST /v2/groups/{group_id}/upload_prepare": {
+      "title": "群聊富媒体预上传",
+      "group": "group",
+      "method": "prepareGroupMediaUpload",
+      "request": "PrepareUploadRequest",
+      "response": "UploadPrepareResponse",
+      "doc": "Start a chunked group upload and receive the upload_id, the presigned part urls and the upload configuration."
+    },
+    "POST /v2/groups/{group_id}/upload_part_finish": {
+      "title": "群聊分片上传完成",
+      "group": "group",
+      "method": "completeGroupUploadPart",
+      "request": "CompleteUploadPartRequest",
+      "response": "void",
+      "doc": "Report one finished chunk of a group upload; call uploadGroupMedia with the upload_id once every part is done."
+    },
+    "GET /v2/groups/{group_openid}/info": {
+      "title": "获取群基本信息",
+      "group": "group",
+      "method": "getGroupInfo",
+      "request": null,
+      "response": "GroupInfo",
+      "doc": "Fetch a group's name, memo, tags and member count."
+    },
+    "GET /v2/groups/{group_openid}/bot_state": {
+      "title": "获取机器人群内状态",
+      "group": "group",
+      "method": "getGroupBotState",
+      "request": null,
+      "response": "GroupBotState",
+      "doc": "Fetch the bot's own state inside a group, including whether proactive messages are allowed."
+    },
+    "GET /v2/groups/{group_openid}/members": {
+      "title": "获取群成员列表",
+      "group": "group",
+      "method": "listGroupMembers",
+      "request": null,
+      "response": "GroupMemberListResponse",
+      "doc": "Page through a group's members with the cursor returned by the previous call."
+    },
+    "GET /v2/groups/{group_openid}/members/{member_openid}": {
+      "title": "获取群成员信息",
+      "group": "group",
+      "method": "getGroupMember",
+      "request": null,
+      "response": "GroupMember",
+      "doc": "Fetch one group member's profile and role."
+    },
+    "POST /v2/groups/{group_openid}/batch_remove_members": {
+      "title": "群成员批量移除",
+      "group": "group",
+      "method": "batchRemoveGroupMembers",
+      "request": "BatchRemoveGroupMembersRequest",
+      "response": "BatchRemoveGroupMembersResponse",
+      "doc": "Kick several members out of a group in one call; the bot must be the owner or an administrator."
+    },
+    "GET /v2/groups/{group_openid}/member_blacklist": {
+      "title": "群黑名单查询",
+      "group": "group",
+      "method": "listGroupBlacklist",
+      "request": null,
+      "response": "GroupBlacklistResponse",
+      "doc": "Page through the members a group has blacklisted."
+    },
+    "POST /v2/groups/{group_openid}/member_blacklist": {
+      "title": "群黑名单操作",
+      "group": "group",
+      "method": "updateGroupBlacklist",
+      "request": "UpdateGroupBlacklistRequest",
+      "response": "GroupBlacklistOperationResponse",
+      "doc": "Add members to or remove them from the group blacklist, returning the openids the operation failed for."
+    },
+    "GET /v2/groups/{group_openid}/join_request_list": {
+      "title": "入群申请列表拉取",
+      "group": "group",
+      "method": "listGroupJoinRequests",
+      "request": null,
+      "response": "GroupJoinRequestListResponse",
+      "doc": "Page through pending join requests of a group."
+    },
+    "POST /v2/groups/{group_openid}/approval_join_request/{member_openid}": {
+      "title": "入群申请审批",
+      "group": "group",
+      "method": "approveGroupJoinRequest",
+      "request": "ApproveGroupJoinRequestRequest",
+      "response": "void",
+      "doc": "Approve or decline a join request with op approve/decline; the bot must be a group administrator."
+    },
+    "GET /v2/groups/{group_openid}/restrict_chat_setting": {
+      "title": "查询群禁言状态",
+      "group": "group",
+      "method": "getGroupMuteState",
+      "request": null,
+      "response": "GroupMuteStateResponse",
+      "doc": "Read the whole-group mute rule and the per-member mute list; the bot must be a group administrator."
+    },
+    "POST /v2/groups/{group_openid}/restrict_chat_setting": {
+      "title": "设置群成员禁言",
+      "group": "group",
+      "method": "setGroupMemberMute",
+      "request": "SetGroupMemberMuteRequest",
+      "response": "void",
+      "doc": "Mute, update or unmute group members, at most 20 per call and at most 30 days long; the bot must be a group administrator."
+    },
+    "GET /v2/groups/join_approval_strategy": {
+      "title": "查询入群自动审批策略列表",
+      "group": "group",
+      "method": "listJoinApprovalStrategies",
+      "request": null,
+      "response": "JoinApprovalStrategyListResponse",
+      "doc": "Page through the automatic join approval strategies of the bot."
+    },
+    "POST /v2/groups/join_approval_strategy": {
+      "title": "创建入群自动审批策略",
+      "group": "group",
+      "method": "createJoinApprovalStrategy",
+      "request": "CreateJoinApprovalStrategyRequest",
+      "response": "CreateJoinApprovalStrategyResponse",
+      "doc": "Create an automatic join approval strategy for the given groups with an optional expiry.",
+      "requestFields": [
+        {
+          "name": "group_openids",
+          "type": "[]string"
+        },
+        {
+          "name": "group_ids",
+          "type": "[]string"
+        },
+        {
+          "name": "is_enable",
+          "type": "string"
+        },
+        {
+          "name": "expire_at",
+          "type": "string"
+        },
+        {
+          "name": "remark",
+          "type": "string"
+        }
+      ]
+    },
+    "PATCH /v2/groups/join_approval_strategy/{strategy_id}": {
+      "title": "修改入群自动审批策略",
+      "group": "group",
+      "method": "updateJoinApprovalStrategy",
+      "request": "UpdateJoinApprovalStrategyRequest",
+      "response": "UpdateJoinApprovalStrategyResponse",
+      "doc": "Enable or disable a strategy, move its expiry, or add and remove the groups it covers."
+    },
+    "DELETE /v2/groups/join_approval_strategy/{strategy_id}": {
+      "title": "删除入群自动审批策略",
+      "group": "group",
+      "method": "deleteJoinApprovalStrategy",
+      "request": null,
+      "response": "void",
+      "doc": "Delete an automatic join approval strategy."
+    },
+    "POST /v2/groups/join_approval_strategy/{strategy_id}/execute": {
+      "title": "执行入群自动审批策略",
+      "group": "group",
+      "method": "executeJoinApprovalStrategy",
+      "request": null,
+      "response": "void",
+      "doc": "Run an automatic join approval strategy against the pending join requests right now."
+    },
+    "POST /v2/groups/join_approval_strategy/{strategy_id}/whitelist_users": {
+      "title": "修改入群自动审批策略的白名单号码",
+      "group": "group",
+      "method": "updateJoinApprovalStrategyWhitelist",
+      "request": "UpdateStrategyWhitelistRequest",
+      "response": "UpdateStrategyWhitelistResponse",
+      "doc": "Add or remove the QQ numbers exempt from an automatic join approval strategy."
+    },
+    "GET /guilds/{guild_id}": {
+      "title": "获取频道详情",
+      "group": "guild",
+      "method": "getGuild",
+      "request": null,
+      "response": "Guild",
+      "doc": "Fetch one guild the bot has joined."
+    },
+    "GET /guilds/{guild_id}/members": {
+      "title": "获取频道成员列表",
+      "group": "guild",
+      "method": "listGuildMembers",
+      "request": null,
+      "response": "[]GuildMember",
+      "doc": "Page through a guild's members with the last member id of the previous page and a limit of 1-400."
+    },
+    "GET /guilds/{guild_id}/members/{user_id}": {
+      "title": "获取频道成员详情",
+      "group": "guild",
+      "method": "getGuildMember",
+      "request": null,
+      "response": "GuildMember",
+      "doc": "Fetch one guild member with the user profile, nickname and role ids."
+    },
+    "DELETE /guilds/{guild_id}/members/{user_id}": {
+      "title": "删除频道成员",
+      "group": "guild",
+      "method": "removeGuildMember",
+      "request": null,
+      "response": "void",
+      "doc": "Kick a guild member, optionally blacklisting them and recalling their messages of the last N days."
+    },
+    "PATCH /guilds/{guild_id}/members/{user_id}/mute": {
+      "title": "修改频道成员禁言状态",
+      "group": "guild",
+      "method": "setGuildMemberMute",
+      "request": null,
+      "response": "void",
+      "doc": "Mute one guild member for a number of seconds or until an absolute timestamp; when both are sent the timestamp wins."
+    },
+    "PATCH /guilds/{guild_id}/mute": {
+      "title": "禁言整个频道",
+      "group": "guild",
+      "method": "setGuildMute",
+      "request": null,
+      "response": "void",
+      "doc": "Mute a whole guild for a number of seconds or until an absolute timestamp; when both are sent the timestamp wins."
+    },
+    "PATCH /guilds/{guild_id}/mute#user_ids": {
+      "title": "频道批量成员禁言",
+      "group": "guild",
+      "method": "setGuildMembersMute",
+      "request": "SetGuildMembersMuteRequest",
+      "response": "void",
+      "doc": "Mute a batch of guild members (non-admins); send mute_end_timestamp or mute_seconds, and the string \"0\" to lift the mute. At most 20 members per call and 30 days long."
+    },
+    "GET /guilds/{guild_id}/message/setting": {
+      "title": "获取频道发言设置",
+      "group": "guild",
+      "method": "getGuildMessageSetting",
+      "request": null,
+      "response": "MessageSetting",
+      "doc": "Read whether the bot may create direct messages and push messages, and the per-channel push quota."
+    },
+    "GET /guilds/{guild_id}/api_permission": {
+      "title": "获取接口权限",
+      "group": "guild",
+      "method": "listGuildApiPermissions",
+      "request": null,
+      "response": "GuildApiPermissionResponse",
+      "doc": "List the API permissions of a guild with the authorization status of each one."
+    },
+    "POST /guilds/{guild_id}/api_permission/demand": {
+      "title": "创建接口权限需求",
+      "group": "guild",
+      "method": "createApiPermissionDemand",
+      "request": "CreateApiPermissionDemandRequest",
+      "response": "ApiPermissionDemand",
+      "doc": "Send an authorization request link into a sub-channel so a guild administrator can grant the bot an API permission."
+    },
+    "GET /channels/{channel_id}": {
+      "title": "获取子频道详情",
+      "group": "channel",
+      "method": "getChannel",
+      "request": null,
+      "response": "Channel",
+      "doc": "Fetch one sub-channel."
+    },
+    "PATCH /channels/{channel_id}": {
+      "title": "修改子频道",
+      "group": "channel",
+      "method": "updateChannel",
+      "request": "UpdateChannelRequest",
+      "response": "Channel",
+      "doc": "Rename, reorder, move or change the visibility and speak permission of a sub-channel."
+    },
+    "DELETE /channels/{channel_id}": {
+      "title": "删除子频道",
+      "group": "channel",
+      "method": "deleteChannel",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a sub-channel."
+    },
+    "GET /channels/{channel_id}/online_nums": {
+      "title": "获取子频道在线成员数",
+      "group": "channel",
+      "method": "getChannelOnlineNums",
+      "request": null,
+      "response": "ChannelOnlineNumsResponse",
+      "doc": "Fetch how many members are online in a voice sub-channel.",
+      "responseFields": [
+        {
+          "name": "online_nums",
+          "type": "integer"
+        }
+      ]
+    },
+    "GET /guilds/{guild_id}/channels": {
+      "title": "获取子频道列表",
+      "group": "channel",
+      "method": "listChannels",
+      "request": null,
+      "response": "GuildChannelListResponse",
+      "doc": "List the sub-channels of a guild."
+    },
+    "POST /guilds/{guild_id}/channels": {
+      "title": "创建子频道",
+      "group": "channel",
+      "method": "createChannel",
+      "request": "CreateChannelRequest",
+      "response": "Channel",
+      "doc": "Create a sub-channel in a guild; private channels must also list their members via private_user_ids."
+    },
+    "POST /channels/{channel_id}/messages": {
+      "title": "创建消息",
+      "group": "channelMessages",
+      "method": "sendChannelMessage",
+      "request": "SendChannelMessageRequest",
+      "response": "Message",
+      "doc": "Send a message into a sub-channel; passive replies must carry msg_id or event_id and are only accepted for 5 minutes after the original event."
+    },
+    "DELETE /channels/{channel_id}/messages/{message_id}": {
+      "title": "删除消息",
+      "group": "channelMessages",
+      "method": "recallChannelMessage",
+      "request": null,
+      "response": "void",
+      "doc": "Recall a sub-channel message, optionally hiding the grey hint line."
+    },
+    "POST /dms/{guild_id}/messages": {
+      "title": "创建私信消息",
+      "group": "channelMessages",
+      "method": "sendDirectMessage",
+      "request": "SendChannelMessageRequest",
+      "response": "Message",
+      "doc": "Send a message into a direct message session created with createDirectMessageSession; passive replies must carry msg_id or event_id."
+    },
+    "DELETE /dms/{guild_id}/messages/{message_id}": {
+      "title": "删除私信消息",
+      "group": "channelMessages",
+      "method": "recallDirectMessage",
+      "request": null,
+      "response": "void",
+      "doc": "Recall a message from a direct message session, optionally hiding the grey hint line."
+    },
+    "PUT /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id}": {
+      "title": "发表消息表情表态",
+      "group": "channelMessages",
+      "method": "addMessageReaction",
+      "request": null,
+      "response": "void",
+      "doc": "Add the bot's emoji reaction to a message; type follows EmojiType and id an entry of the emoji list."
+    },
+    "DELETE /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id}": {
+      "title": "删除机器人发表的表情表态",
+      "group": "channelMessages",
+      "method": "deleteMessageReaction",
+      "request": null,
+      "response": "void",
+      "doc": "Remove the bot's own emoji reaction from a message."
+    },
+    "GET /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id}": {
+      "title": "获取消息表情表态的用户列表",
+      "group": "channelMessages",
+      "method": "listMessageReactionUsers",
+      "request": null,
+      "response": "ReactionUsersResponse",
+      "doc": "List who reacted with a given emoji; limit applies to the first call only and later pages continue with the returned cookie.",
+      "responseFields": [
+        {
+          "name": "users",
+          "type": "[]User"
+        },
+        {
+          "name": "cookie",
+          "type": "string"
+        },
+        {
+          "name": "is_end",
+          "type": "bool"
+        }
+      ]
+    },
+    "GET /channels/{channel_id}/pins": {
+      "title": "获取置顶消息",
+      "group": "channelContent",
+      "method": "getPinnedMessages",
+      "request": null,
+      "response": "PinsMessage",
+      "doc": "List the pinned messages of a sub-channel."
+    },
+    "PUT /channels/{channel_id}/pins/{message_id}": {
+      "title": "置顶消息",
+      "group": "channelContent",
+      "method": "pinMessage",
+      "request": null,
+      "response": "PinsMessage",
+      "doc": "Pin a message to the top of a sub-channel and return the new pin list."
+    },
+    "DELETE /channels/{channel_id}/pins/{message_id}": {
+      "title": "取消置顶消息",
+      "group": "channelContent",
+      "method": "unpinMessage",
+      "request": null,
+      "response": "void",
+      "doc": "Remove a message pin from a sub-channel."
+    },
+    "GET /channels/{channel_id}/schedules": {
+      "title": "获取日程列表",
+      "group": "channelContent",
+      "method": "listSchedules",
+      "request": null,
+      "response": "[]Schedule",
+      "doc": "List the schedules of a sub-channel from a start timestamp onwards."
+    },
+    "GET /channels/{channel_id}/schedules/{schedule_id}": {
+      "title": "获取日程详情",
+      "group": "channelContent",
+      "method": "getSchedule",
+      "request": null,
+      "response": "Schedule",
+      "doc": "Fetch one schedule of a sub-channel."
+    },
+    "POST /channels/{channel_id}/schedules": {
+      "title": "创建日程",
+      "group": "channelContent",
+      "method": "createSchedule",
+      "request": "ScheduleRequest",
+      "response": "Schedule",
+      "doc": "Create a schedule in a sub-channel; the id inside the schedule object is ignored."
+    },
+    "PATCH /channels/{channel_id}/schedules/{schedule_id}": {
+      "title": "修改日程",
+      "group": "channelContent",
+      "method": "updateSchedule",
+      "request": "ScheduleRequest",
+      "response": "Schedule",
+      "doc": "Replace a schedule in a sub-channel; the schedule object must not carry an id."
+    },
+    "DELETE /channels/{channel_id}/schedules/{schedule_id}": {
+      "title": "删除日程",
+      "group": "channelContent",
+      "method": "deleteSchedule",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a schedule from a sub-channel."
+    },
+    "GET /channels/{channel_id}/threads": {
+      "title": "获取帖子列表",
+      "group": "channelContent",
+      "method": "listThreads",
+      "request": null,
+      "response": "ThreadListResponse",
+      "doc": "Page through the threads of a forum sub-channel until is_finish is set.",
+      "responseFields": [
+        {
+          "name": "threads",
+          "type": "[]Thread"
+        },
+        {
+          "name": "is_finish",
+          "type": "uint32"
+        }
+      ]
+    },
+    "GET /channels/{channel_id}/threads/{thread_id}": {
+      "title": "获取帖子详情",
+      "group": "channelContent",
+      "method": "getThread",
+      "request": null,
+      "response": "ThreadDetailResponse",
+      "doc": "Fetch one thread of a forum sub-channel.",
+      "responseFields": [
+        {
+          "name": "thread",
+          "type": "Thread"
+        }
+      ]
+    },
+    "PUT /channels/{channel_id}/threads": {
+      "title": "发帖",
+      "group": "channelContent",
+      "method": "publishThread",
+      "request": "PublishThreadRequest",
+      "response": "ThreadCreateResponse",
+      "doc": "Publish a thread into a forum sub-channel; the content format follows Format and the result is audited asynchronously."
+    },
+    "DELETE /channels/{channel_id}/threads/{thread_id}": {
+      "title": "删除帖子",
+      "group": "channelContent",
+      "method": "deleteThread",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a thread from a forum sub-channel."
+    },
+    "POST /channels/{channel_id}/audio": {
+      "title": "发布控制台",
+      "group": "channelContent",
+      "method": "controlChannelAudio",
+      "request": "AudioControl",
+      "response": "void",
+      "doc": "Drive the voice bot of a sub-channel: play a url, pause, resume or stop, with optional text-to-speech."
+    },
+    "PUT /channels/{channel_id}/mic": {
+      "title": "机器人上麦",
+      "group": "channelContent",
+      "method": "startChannelMic",
+      "request": null,
+      "response": "void",
+      "doc": "Make the bot join the microphone of a voice sub-channel."
+    },
+    "DELETE /channels/{channel_id}/mic": {
+      "title": "机器人下麦",
+      "group": "channelContent",
+      "method": "stopChannelMic",
+      "request": null,
+      "response": "void",
+      "doc": "Make the bot leave the microphone of a voice sub-channel."
+    },
+    "POST /guilds/{guild_id}/announces": {
+      "title": "创建成员公告",
+      "group": "channelContent",
+      "method": "createGuildAnnounce",
+      "request": "CreateGuildAnnounceRequest",
+      "response": "Announces",
+      "doc": "Publish a message as guild announce or welcome announce, or replace the recommended channel list in one call."
+    },
+    "DELETE /guilds/{guild_id}/announces/{message_id}": {
+      "title": "删除成员公告",
+      "group": "channelContent",
+      "method": "deleteGuildAnnounce",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a guild announcement."
+    },
+    "GET /guilds/{guild_id}/roles": {
+      "title": "获取频道身份组列表",
+      "group": "channelPermissions",
+      "method": "listGuildRoles",
+      "request": null,
+      "response": "GuildRolesResponse",
+      "doc": "List the roles of a guild together with the role quota."
+    },
+    "POST /guilds/{guild_id}/roles": {
+      "title": "创建频道身份组",
+      "group": "channelPermissions",
+      "method": "createGuildRole",
+      "request": "CreateGuildRoleRequest",
+      "response": "CreateGuildRoleResponse",
+      "doc": "Create a role in a guild; color is the decimal value of the ARGB hex colour."
+    },
+    "PATCH /guilds/{guild_id}/roles/{role_id}": {
+      "title": "修改频道身份组",
+      "group": "channelPermissions",
+      "method": "updateGuildRole",
+      "request": "UpdateGuildRoleRequest",
+      "response": "UpdateGuildRoleResponse",
+      "doc": "Rename a role or change its colour and whether it is shown separately."
+    },
+    "DELETE /guilds/{guild_id}/roles/{role_id}": {
+      "title": "删除频道身份组",
+      "group": "channelPermissions",
+      "method": "deleteGuildRole",
+      "request": null,
+      "response": "void",
+      "doc": "Delete a role from a guild."
+    },
+    "GET /guilds/{guild_id}/roles/{role_id}/members": {
+      "title": "获取身份组成员列表",
+      "group": "channelPermissions",
+      "method": "listGuildRoleMembers",
+      "request": null,
+      "response": "GuildRoleMembersResponse",
+      "doc": "Page through the members holding a role with start_index and a limit of 1-400.",
+      "responseFields": [
+        {
+          "name": "data",
+          "type": "[]MemberWithGuildID"
+        },
+        {
+          "name": "next",
+          "type": "string"
+        }
+      ]
+    },
+    "PUT /guilds/{guild_id}/members/{user_id}/roles/{role_id}": {
+      "title": "给频道成员添加身份组",
+      "group": "channelPermissions",
+      "method": "addGuildMemberRole",
+      "request": "GuildMemberRoleRequest",
+      "response": "void",
+      "doc": "Grant a role to a guild member; pass a channel object with only the id filled to scope the role to a sub-channel."
+    },
+    "DELETE /guilds/{guild_id}/members/{user_id}/roles/{role_id}": {
+      "title": "删除频道成员身份组",
+      "group": "channelPermissions",
+      "method": "removeGuildMemberRole",
+      "request": "GuildMemberRoleRequest",
+      "response": "void",
+      "doc": "Revoke a role from a guild member; pass a channel object with only the id filled to scope the role to a sub-channel."
+    },
+    "GET /channels/{channel_id}/members/{user_id}/permissions": {
+      "title": "获取子频道成员权限",
+      "group": "channelPermissions",
+      "method": "getChannelMemberPermissions",
+      "request": null,
+      "response": "ChannelMemberPermissionsResponse",
+      "doc": "Read the permission bit map a member holds in a sub-channel.",
+      "responseFields": [
+        {
+          "name": "channel_id",
+          "type": "string"
+        },
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "permissions",
+          "type": "string"
+        }
+      ]
+    },
+    "PUT /channels/{channel_id}/members/{user_id}/permissions": {
+      "title": "修改子频道成员权限",
+      "group": "channelPermissions",
+      "method": "updateChannelMemberPermissions",
+      "request": null,
+      "response": "void",
+      "doc": "Grant and revoke sub-channel permissions for one member with decimal bit map strings."
+    },
+    "GET /channels/{channel_id}/roles/{role_id}/permissions": {
+      "title": "获取子频道身份组权限",
+      "group": "channelPermissions",
+      "method": "getChannelRolePermissions",
+      "request": null,
+      "response": "ChannelRolePermissionsResponse",
+      "doc": "Read the permission bit map a role holds in a sub-channel.",
+      "responseFields": [
+        {
+          "name": "channel_id",
+          "type": "string"
+        },
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "permissions",
+          "type": "string"
+        }
+      ]
+    },
+    "PUT /channels/{channel_id}/roles/{role_id}/permissions": {
+      "title": "修改子频道身份组权限",
+      "group": "channelPermissions",
+      "method": "updateChannelRolePermissions",
+      "request": null,
+      "response": "void",
+      "doc": "Grant and revoke sub-channel permissions for one role with decimal bit map strings."
+    }
+  }
+}

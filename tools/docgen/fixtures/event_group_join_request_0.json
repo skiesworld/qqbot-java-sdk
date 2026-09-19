@@ -1,0 +1,5 @@
+{
+ "event": "GROUP_JOIN_REQUEST",
+ "index": 0,
+ "raw": "{\n  \"group_openid\": \"30584554AA2BF4E72BD3B8F27A70339D\",\n  \"join_request_id\": \"AVKiFWpdy0-q0rfCkpQFbWB9GvX7QPIe9hlsbVeO6TiurrZw1DHP0sXGnbUR4Xm79tKNpfl4zZynxeibVwwUD6h96RqiFB-4V6p5FKGXfqInOuQQSf5WwXr8lyIsn6yeaMwEI1KSuTTMBMNe6WN8bDtKg2REXTcF\",\n  \"member_openid\": \"FE003FAF76C4817251FDC128A16753BB\",\n  \"username\": \"痞孓小光光╮hw灰\",\n  \"apply_at\": \"2026-08-05T16:21:40+08:00\",\n  \"apply_source\": \"self_apply\",\n  \"verify_info\": {\n    \"method\": \"verify_message\",\n    \"verify_message\": \"就快乐了\"\n  }\n}"
+}

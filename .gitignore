@@ -1,0 +1,15 @@
+.gradle/
+build/
+out/
+*.class
+*.log
+.idea/
+.vscode/
+.qoder/
+# crawled official docs corpus (regenerate with tools/docgen/crawl.py)
+tools/docgen/site/
+tools/docgen/__pycache__/
+
+
+local.properties
+.env

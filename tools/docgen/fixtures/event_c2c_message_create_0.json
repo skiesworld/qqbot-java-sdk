@@ -1,0 +1,5 @@
+{
+ "event": "C2C_MESSAGE_CREATE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"author\": {\n    \"id\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n    \"user_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n    \"union_openid\": \"\",\n    \"username\": \"\",\n    \"bot\": false\n  },\n  \"content\": \"你好，今天有什么推荐的活动吗？\",\n  \"message_type\": 0,\n  \"message_scene\": {\n    \"source\": \"default\",\n    \"ext\": [\n      \"msg_idx=REFIDX_xxxxxxxxxxxxxxx==\"\n    ]\n  },\n  \"timestamp\": \"2026-07-21T10:00:00+08:00\"\n}"
+}

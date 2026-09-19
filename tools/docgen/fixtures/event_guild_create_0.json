@@ -1,0 +1,5 @@
+{
+ "event": "GUILD_CREATE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"123456789012345678\",\n  \"name\": \"技术交流频道\",\n  \"icon\": \"https://thirdqq.qlogo.cn/0\",\n  \"owner_id\": \"123456789012345678\",\n  \"member_count\": 100,\n  \"max_members\": 1000,\n  \"description\": \"专注于技术分享与交流的频道\",\n  \"joined_at\": \"2026-01-01T00:00:00+08:00\",\n  \"op_user_id\": \"123456789012345678\"\n}"
+}

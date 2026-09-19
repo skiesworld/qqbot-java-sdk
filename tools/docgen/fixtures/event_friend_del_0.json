@@ -1,0 +1,5 @@
+{
+ "event": "FRIEND_DEL",
+ "index": 0,
+ "raw": "{\n  \"openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"timestamp\": 1784570524\n}"
+}

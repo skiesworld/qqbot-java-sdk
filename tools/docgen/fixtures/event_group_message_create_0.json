@@ -1,0 +1,5 @@
+{
+ "event": "GROUP_MESSAGE_CREATE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"ROBOT1.0_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"author\": {\n    \"id\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n    \"member_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n    \"member_role\": \"member\",\n    \"username\": \"小明\",\n    \"bot\": false\n  },\n  \"content\": \"大家早上好呀\",\n  \"group_openid\": \"B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5\",\n  \"message_type\": 0,\n  \"timestamp\": \"2026-07-21T08:00:00+08:00\",\n  \"message_scene\": {\n    \"source\": \"default\",\n    \"ext\": [\n      \"msg_idx=REFIDX_xxxxxxxxxxxxxxx==\",\n      \"auth_token=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n    ]\n  }\n}"
+}

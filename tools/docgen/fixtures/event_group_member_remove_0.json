@@ -1,0 +1,5 @@
+{
+ "event": "GROUP_MEMBER_REMOVE",
+ "index": 0,
+ "raw": "{\n  \"timestamp\": 1784276759,\n  \"group_openid\": \"B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5\",\n  \"member_openid\": \"C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6\",\n  \"user_openid\": \"C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6\"\n}"
+}

@@ -1,0 +1,315 @@
+--- ENDPOINTS (150) ---
+DELETE /channels/1013531/messages/08c095b7ba8ed4abd7e00110cbd83f3841489aa2bd9006/reactions/1/203 表情表态                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+GET    /channels/1013531/messages/08c095b7ba8ed4abd7e00110cbd83f3841489aa2bd9006/reactions/1/203 表情表态                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+PUT    /channels/1013531/messages/08c095b7ba8ed4abd7e00110cbd83f3841489aa2bd9006/reactions/1/203 表情表态                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+GET    /channels/123455/schedules/112233                        获取日程详情                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/get_schedule.html
+DELETE /channels/123456                                         删除子频道                    pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/channels_channel_id.delete.html
+GET    /channels/123456                                         获取子频道详情                  pp=0 qp=0 body=0 resp=12 types= | wiki/develop/api-v2autogen/api/channels_channel_id.get.html
+PATCH  /channels/123456                                         修改子频道                    pp=0 qp=0 body=0 resp=12 types= | wiki/develop/api-v2autogen/api/channels_channel_id.patch.html
+GET    /channels/123456/members/112233/permissions              获取子频道用户权限                pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/get_channel_permissions.html
+DELETE /channels/123456/messages/112233                         撤回子频道消息                  pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/recall.html
+GET    /channels/123456/online_nums                             获取子频道在线成员数               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/get_online_nums.html
+DELETE /channels/123456/pins/112233                             删除精华消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/pins/delete_pins_message.html
+PUT    /channels/123456/pins/112233                             添加精华消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/pins/put_pins_message.html
+GET    /channels/123456/roles/112233/permissions                获取子频道身份组权限               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/get_channel_roles_permissions.html
+DELETE /channels/123456/schedules/112233                        删除日程                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/delete_schedule.html
+DELETE /channels/{channel_id}                                   删除子频道                    pp=1 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/channels_channel_id.delete.html
+GET    /channels/{channel_id}                                   获取子频道详情                  pp=1 qp=0 body=0 resp=12 types= | wiki/develop/api-v2autogen/api/channels_channel_id.get.html
+PATCH  /channels/{channel_id}                                   修改子频道                    pp=1 qp=0 body=5 resp=12 types= | wiki/develop/api-v2autogen/api/channels_channel_id.patch.html
+POST   /channels/{channel_id}/audio                             音频控制                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/audio/audio_control.html
+GET    /channels/{channel_id}/members/{user_id}/permissions     获取子频道用户权限                pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/get_channel_permissions.html
+PUT    /channels/{channel_id}/members/{user_id}/permissions     修改子频道用户权限                pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/put_channel_permissions.html
+POST   /channels/{channel_id}/messages                          发送子频道消息                  pp=0 qp=0 body=8 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/send.html
+DELETE /channels/{channel_id}/messages/{message_id}             撤回子频道消息                  pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/recall.html
+DELETE /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id} 表情表态                     pp=0 qp=0 body=4 resp=0 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+GET    /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id} 表情表态                     pp=0 qp=0 body=0 resp=3 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+PUT    /channels/{channel_id}/messages/{message_id}/reactions/{type}/{id} 表情表态                     pp=0 qp=0 body=4 resp=0 types= | wiki/develop/api-v2server-inter/message/trans/emoji.html
+DELETE /channels/{channel_id}/mic                               机器人下麦                    pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/audio/delete_mic.html
+PUT    /channels/{channel_id}/mic                               机器人上麦                    pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/audio/put_mic.html
+GET    /channels/{channel_id}/online_nums                       获取子频道在线成员数               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/get_online_nums.html
+GET    /channels/{channel_id}/pins                              获取精华消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/pins/get_pins_message.html
+DELETE /channels/{channel_id}/pins/{message_id}                 删除精华消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/pins/delete_pins_message.html
+PUT    /channels/{channel_id}/pins/{message_id}                 添加精华消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/pins/put_pins_message.html
+GET    /channels/{channel_id}/roles/{role_id}/permissions       获取子频道身份组权限               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/get_channel_roles_permissions.html
+PUT    /channels/{channel_id}/roles/{role_id}/permissions       修改子频道身份组权限               pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/channel_permissions/put_channel_roles_permissions.html
+GET    /channels/{channel_id}/schedules                         获取频道日程列表                 pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/get_schedules.html
+POST   /channels/{channel_id}/schedules                         创建日程                     pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/post_schedule.html
+DELETE /channels/{channel_id}/schedules/{schedule_id}           删除日程                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/delete_schedule.html
+GET    /channels/{channel_id}/schedules/{schedule_id}           获取日程详情                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/get_schedule.html
+PATCH  /channels/{channel_id}/schedules/{schedule_id}           修改日程                     pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/schedule/patch_schedule.html
+GET    /channels/{channel_id}/threads                           获取帖子列表                   pp=0 qp=0 body=0 resp=2 types= | wiki/develop/api-v2server-inter/channel/content/forum/get_threads_list.html
+PUT    /channels/{channel_id}/threads                           发表帖子                     pp=0 qp=0 body=3 resp=2 types= | wiki/develop/api-v2server-inter/channel/content/forum/put_thread.html
+DELETE /channels/{channel_id}/threads/{thread_id}               删除帖子                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/forum/delete_thread.html
+GET    /channels/{channel_id}/threads/{thread_id}               获取帖子详情                   pp=0 qp=0 body=0 resp=1 types= | wiki/develop/api-v2server-inter/channel/content/forum/get_thread.html
+DELETE /dms/123456/messages/112233                              频道私信                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/dms.html
+POST   /dms/{guild_id}/messages                                 频道私信                     pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/dms.html
+DELETE /dms/{guild_id}/messages/{message_id}                    频道私信                     pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/dms.html
+GET    /gateway                                                 获取通用 WSS 接入点             pp=0 qp=0 body=0 resp=1 types= | wiki/develop/api-v2autogen/api/gateway.get.html
+GET    /gateway/bot                                             获取带分片 WSS 接入点            pp=0 qp=0 body=0 resp=3 types= | wiki/develop/api-v2openapi/wss/shard_url_get.html
+DELETE /guilds/123456/announces/112233                          删除频道公告                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/announces/delete_guild_announces.html
+GET    /guilds/123456/members                                   获取频道成员列表                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/get_members.html
+DELETE /guilds/123456/members/112233                            删除频道成员                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/delete_member.html
+GET    /guilds/123456/members/112233                            获取频道成员详情                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/get_member.html
+DELETE /guilds/123456/members/112233/roles/445566               删除频道身份组成员                pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/delete_guild_member_role.html
+GET    /guilds/123456/roles                                     获取频道身份组列表                pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/get_guild_roles.html
+DELETE /guilds/123456/roles/112233                              删除频道身份组                  pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/delete_guild_role.html
+GET    /guilds/123456/roles/4/members                           获取频道身份组成员列表              pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/get_role_members.html
+GET    /guilds/123456789012345678                               获取频道详情                   pp=0 qp=0 body=0 resp=9 types= | wiki/develop/api-v2autogen/api/guilds_guild_id.get.html
+GET    /guilds/123456789012345678/channels                      获取子频道列表                  pp=0 qp=0 body=0 resp=1 types=Channel | wiki/develop/api-v2autogen/api/guilds_guild_id_channels.get.html
+POST   /guilds/123456789012345678/channels                      创建子频道                    pp=0 qp=0 body=0 resp=12 types= | wiki/develop/api-v2autogen/api/guilds_guild_id_channels.post.html
+GET    /guilds/{guild_id}                                       获取频道详情                   pp=1 qp=0 body=0 resp=9 types= | wiki/develop/api-v2autogen/api/guilds_guild_id.get.html
+POST   /guilds/{guild_id}/announces                             创建频道公告                   pp=0 qp=0 body=4 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/announces/post_guild_announces.html
+DELETE /guilds/{guild_id}/announces/{message_id}                删除频道公告                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/content/announces/delete_guild_announces.html
+GET    /guilds/{guild_id}/api_permission                        获取机器人在频道可用权限列表           pp=0 qp=0 body=0 resp=1 types= | wiki/develop/api-v2server-inter/channel/api_permissions/get_guild_api_permission.html
+POST   /guilds/{guild_id}/api_permission/demand                 发送机器人在频道接口权限的授权链接        pp=0 qp=0 body=3 resp=0 types= | wiki/develop/api-v2server-inter/channel/api_permissions/post_api_permission_demand.html
+GET    /guilds/{guild_id}/channels                              获取子频道列表                  pp=1 qp=0 body=0 resp=1 types=Channel | wiki/develop/api-v2autogen/api/guilds_guild_id_channels.get.html
+POST   /guilds/{guild_id}/channels                              创建子频道                    pp=1 qp=0 body=9 resp=12 types= | wiki/develop/api-v2autogen/api/guilds_guild_id_channels.post.html
+GET    /guilds/{guild_id}/members                               获取频道成员列表                 pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/get_members.html
+DELETE /guilds/{guild_id}/members/{user_id}                     删除频道成员                   pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/delete_member.html
+GET    /guilds/{guild_id}/members/{user_id}                     获取频道成员详情                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role/member/get_member.html
+PATCH  /guilds/{guild_id}/members/{user_id}/mute                频道指定成员禁言                 pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/speak/patch_guild_member_mute.html
+DELETE /guilds/{guild_id}/members/{user_id}/roles/{role_id}     删除频道身份组成员                pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/delete_guild_member_role.html
+PUT    /guilds/{guild_id}/members/{user_id}/roles/{role_id}     创建频道身份组成员                pp=0 qp=0 body=1 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/put_guild_member_role.html
+GET    /guilds/{guild_id}/message/setting                       获取频道消息频率的设置详情            pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/speak/setting/message_setting.html
+PATCH  /guilds/{guild_id}/mute                                  频道全员禁言                   pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/speak/patch_guild_mute.html
+PATCH  /guilds/{guild_id}/mute                                  频道批量成员禁言                 pp=0 qp=0 body=3 resp=0 types= | wiki/develop/api-v2server-inter/channel/speak/patch_guild_mute_multi_member.html
+GET    /guilds/{guild_id}/roles                                 获取频道身份组列表                pp=0 qp=0 body=0 resp=3 types= | wiki/develop/api-v2server-inter/channel/role-group/get_guild_roles.html
+POST   /guilds/{guild_id}/roles                                 创建频道身份组                  pp=0 qp=0 body=3 resp=2 types= | wiki/develop/api-v2server-inter/channel/role-group/post_guild_role.html
+DELETE /guilds/{guild_id}/roles/{role_id}                       删除频道身份组                  pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2server-inter/channel/role-group/delete_guild_role.html
+PATCH  /guilds/{guild_id}/roles/{role_id}                       修改频道身份组                  pp=0 qp=0 body=3 resp=3 types= | wiki/develop/api-v2server-inter/channel/role-group/patch_guild_role.html
+GET    /guilds/{guild_id}/roles/{role_id}/members               获取频道身份组成员列表              pp=0 qp=0 body=2 resp=2 types= | wiki/develop/api-v2server-inter/channel/role/member/get_role_members.html
+PUT    /interactions/a1b2c3d4-e5f6-7890-abcd-ef1234567890       互动事件响应                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/interactions_interaction_id.put.html
+PUT    /interactions/{interaction_id}                           互动事件响应                   pp=1 qp=0 body=1 resp=0 types= | wiki/develop/api-v2autogen/api/interactions_interaction_id.put.html
+GET    /users/@me                                               获取机器人详情                  pp=0 qp=0 body=0 resp=6 types= | wiki/develop/api-v2autogen/api/users_me.get.html
+POST   /users/@me/dms                                           频道私信                     pp=0 qp=0 body=2 resp=0 types= | wiki/develop/api-v2server-inter/channel/message/dms.html
+GET    /users/@me/guilds                                        获取机器人频道列表                pp=0 qp=3 body=0 resp=1 types=GuildInfo | wiki/develop/api-v2autogen/api/users_me_guilds.get.html
+POST   /v2/generate_url_link                                    生成分享链接                   pp=0 qp=0 body=1 resp=1 types=Data | wiki/develop/api-v2autogen/api/v2_generate_url_link.post.html
+POST   /v2/groups/30584554AA2BF4E72BD3B8F27A70339D/approval_join_request/FE003FAF76C4817251FDC128A16753BB 入群申请审批                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_approval_join_request_member_openid.post.html
+GET    /v2/groups/30584554AA2BF4E72BD3B8F27A70339D/join_request_list 入群申请列表拉取                 pp=0 qp=0 body=0 resp=2 types=JoinRequest,VerifyInfo,ReviewQA | wiki/develop/api-v2autogen/api/v2_groups_group_openid_join_request_list.get.html
+GET    /v2/groups/30584554AA2BF4E72BD3B8F27A70339D/restrict_chat_setting 查询群禁言状态                  pp=0 qp=0 body=0 resp=2 types=GlobalMuteRule,MuteScheduleRule,MuteRecurringRule,MemberMuteState | wiki/develop/api-v2autogen/api/v2_groups_group_openid_restrict_chat_setting.get.html
+POST   /v2/groups/30584554AA2BF4E72BD3B8F27A70339D/restrict_chat_setting 设置群成员禁言                  pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_restrict_chat_setting.post.html
+POST   /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/batch_remove_members 群成员批量移除                  pp=0 qp=0 body=0 resp=2 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_batch_remove_members.post.html
+GET    /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/bot_state    获取机器人群内状态                pp=0 qp=0 body=0 resp=5 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_bot_state.get.html
+GET    /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/info         获取群基本信息                  pp=0 qp=0 body=0 resp=6 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_info.get.html
+GET    /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/member_blacklist 群黑名单查询                   pp=0 qp=0 body=0 resp=2 types=BlacklistUser | wiki/develop/api-v2autogen/api/v2_groups_group_openid_member_blacklist.get.html
+POST   /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/member_blacklist 群黑名单操作                   pp=0 qp=0 body=0 resp=1 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_member_blacklist.post.html
+GET    /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/members      获取群成员列表                  pp=0 qp=0 body=0 resp=2 types=Member | wiki/develop/api-v2autogen/api/v2_groups_group_openid_members.get.html
+GET    /v2/groups/3E5D8A1F7B2C9E4D6A0F1B3C5D7E9F2A/members/7A3B9C1D5E2F4A6B8C0D1E3F5A7B9C2D 获取群成员信息                  pp=0 qp=0 body=0 resp=6 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_members_member_openid.get.html
+POST   /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/files        群聊富媒体上传                  pp=0 qp=0 body=0 resp=5 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_files.post.html
+POST   /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/messages     发送群聊消息                   pp=0 qp=0 body=0 resp=3 types=MessageExtInfo | wiki/develop/api-v2autogen/api/v2_groups_group_openid_messages.post.html
+DELETE /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/messages/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF 撤回群聊消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_messages_message_id.delete.html
+POST   /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/upload_part_finish 群聊分片上传完成                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_id_upload_part_finish.post.html
+POST   /v2/groups/B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5/upload_prepare 群聊富媒体预上传                 pp=0 qp=0 body=0 resp=4 types=UploadPart,UploadConfig | wiki/develop/api-v2autogen/api/v2_groups_group_id_upload_prepare.post.html
+GET    /v2/groups/join_approval_strategy                        查询入群自动审批策略列表             pp=0 qp=0 body=2 resp=2 types=JoinApprovalStrategy | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy.get.html
+POST   /v2/groups/join_approval_strategy                        创建入群自动审批策略               pp=0 qp=0 body=5 resp=3 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy.post.html
+DELETE /v2/groups/join_approval_strategy/st_d83eca11e9          删除入群自动审批策略               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id.delete.html
+PATCH  /v2/groups/join_approval_strategy/st_d83eca11e9          修改入群自动审批策略               pp=0 qp=0 body=0 resp=2 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id.patch.html
+POST   /v2/groups/join_approval_strategy/st_d83eca11e9/execute  执行入群自动审批策略               pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id_execute.post.html
+POST   /v2/groups/join_approval_strategy/st_d83eca11e9/whitelist_users 修改入群自动审批策略的白名单号码         pp=0 qp=0 body=0 resp=3 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id_whitelist_users.post.html
+DELETE /v2/groups/join_approval_strategy/{strategy_id}          删除入群自动审批策略               pp=1 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id.delete.html
+PATCH  /v2/groups/join_approval_strategy/{strategy_id}          修改入群自动审批策略               pp=1 qp=0 body=4 resp=2 types=GroupAction | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id.patch.html
+POST   /v2/groups/join_approval_strategy/{strategy_id}/execute  执行入群自动审批策略               pp=1 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id_execute.post.html
+POST   /v2/groups/join_approval_strategy/{strategy_id}/whitelist_users 修改入群自动审批策略的白名单号码         pp=1 qp=0 body=2 resp=3 types= | wiki/develop/api-v2autogen/api/v2_groups_join_approval_strategy_strategy_id_whitelist_users.post.html
+POST   /v2/groups/{group_id}/upload_part_finish                 群聊分片上传完成                 pp=1 qp=0 body=4 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_id_upload_part_finish.post.html
+POST   /v2/groups/{group_id}/upload_prepare                     群聊富媒体预上传                 pp=1 qp=0 body=6 resp=4 types=UploadPart,UploadConfig | wiki/develop/api-v2autogen/api/v2_groups_group_id_upload_prepare.post.html
+POST   /v2/groups/{group_openid}/approval_join_request/{member_openid} 入群申请审批                   pp=2 qp=0 body=4 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_approval_join_request_member_openid.post.html
+POST   /v2/groups/{group_openid}/batch_remove_members           群成员批量移除                  pp=1 qp=0 body=2 resp=2 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_batch_remove_members.post.html
+GET    /v2/groups/{group_openid}/bot_state                      获取机器人群内状态                pp=1 qp=0 body=0 resp=5 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_bot_state.get.html
+POST   /v2/groups/{group_openid}/files                          群聊富媒体上传                  pp=1 qp=0 body=5 resp=5 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_files.post.html
+GET    /v2/groups/{group_openid}/info                           获取群基本信息                  pp=1 qp=0 body=0 resp=6 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_info.get.html
+GET    /v2/groups/{group_openid}/join_request_list              入群申请列表拉取                 pp=1 qp=0 body=2 resp=2 types=JoinRequest,VerifyInfo,ReviewQA | wiki/develop/api-v2autogen/api/v2_groups_group_openid_join_request_list.get.html
+GET    /v2/groups/{group_openid}/member_blacklist               群黑名单查询                   pp=1 qp=0 body=2 resp=2 types=BlacklistUser | wiki/develop/api-v2autogen/api/v2_groups_group_openid_member_blacklist.get.html
+POST   /v2/groups/{group_openid}/member_blacklist               群黑名单操作                   pp=1 qp=0 body=2 resp=1 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_member_blacklist.post.html
+GET    /v2/groups/{group_openid}/members                        获取群成员列表                  pp=1 qp=0 body=1 resp=2 types=Member | wiki/develop/api-v2autogen/api/v2_groups_group_openid_members.get.html
+GET    /v2/groups/{group_openid}/members/{member_openid}        获取群成员信息                  pp=2 qp=0 body=0 resp=6 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_members_member_openid.get.html
+POST   /v2/groups/{group_openid}/messages                       发送群聊消息                   pp=1 qp=0 body=9 resp=3 types=MessageMarkdown,Keyboard,KeyboardContent,Row | wiki/develop/api-v2autogen/api/v2_groups_group_openid_messages.post.html
+DELETE /v2/groups/{group_openid}/messages/{message_id}          撤回群聊消息                   pp=2 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_groups_group_openid_messages_message_id.delete.html
+GET    /v2/groups/{group_openid}/restrict_chat_setting          查询群禁言状态                  pp=1 qp=0 body=0 resp=2 types=GlobalMuteRule,MuteScheduleRule,MuteRecurringRule,MemberMuteState | wiki/develop/api-v2autogen/api/v2_groups_group_openid_restrict_chat_setting.get.html
+POST   /v2/groups/{group_openid}/restrict_chat_setting          设置群成员禁言                  pp=1 qp=0 body=1 resp=0 types=SetMemberMuteState | wiki/develop/api-v2autogen/api/v2_groups_group_openid_restrict_chat_setting.post.html
+GET    /v2/menu                                                 查询全局自定义菜单                pp=0 qp=0 body=0 resp=2 types=Menu,MenuItem,SubMenuItem,Switch | wiki/develop/api-v2autogen/api/v2_menu.get.html
+PUT    /v2/menu                                                 修改全局自定义菜单                pp=0 qp=0 body=1 resp=1 types=Menu,MenuItem,SubMenuItem,Switch | wiki/develop/api-v2autogen/api/v2_menu.put.html
+GET    /v2/panels                                               查询指令面板列表                 pp=0 qp=3 body=0 resp=3 types=PanelRecord,Panel,PanelItem | wiki/develop/api-v2autogen/api/v2_panels.get.html
+POST   /v2/panels                                               创建指令面板                   pp=0 qp=0 body=5 resp=1 types=Panel,PanelItem | wiki/develop/api-v2autogen/api/v2_panels.post.html
+DELETE /v2/panels/p_x8k2x8k2x8k2                                删除指令面板                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_panels_panel_id.delete.html
+GET    /v2/panels/p_x8k2x8k2x8k2                                查询指令面板详情                 pp=0 qp=0 body=0 resp=9 types=Panel,PanelItem | wiki/develop/api-v2autogen/api/v2_panels_panel_id.get.html
+DELETE /v2/panels/{panel_id}                                    删除指令面板                   pp=1 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_panels_panel_id.delete.html
+GET    /v2/panels/{panel_id}                                    查询指令面板详情                 pp=1 qp=0 body=0 resp=9 types=Panel,PanelItem | wiki/develop/api-v2autogen/api/v2_panels_panel_id.get.html
+PUT    /v2/panels/{panel_id}                                    修改指令面板                   pp=1 qp=0 body=1 resp=1 types=Panel,PanelItem | wiki/develop/api-v2autogen/api/v2_panels_panel_id.put.html
+PUT    /v2/panels/{panel_id}/target                             修改指令面板关联对象               pp=1 qp=0 body=3 resp=0 types= | wiki/develop/api-v2autogen/api/v2_panels_panel_id_target.put.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/files         单聊富媒体上传                  pp=0 qp=0 body=0 resp=5 types= | wiki/develop/api-v2autogen/api/v2_users_user_openid_files.post.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages      发送单聊消息                   pp=0 qp=0 body=0 resp=3 types=MessageExtInfo | wiki/develop/api-v2autogen/api/v2_users_user_openid_messages.post.html
+DELETE /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/messages/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF 撤回单聊消息                   pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_users_user_openid_messages_message_id.delete.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/stream_messages 流式发送单聊消息                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_users_user_openid_stream_messages.post.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/upload_part_finish 单聊分片上传完成                 pp=0 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_users_user_id_upload_part_finish.post.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/upload_prepare 单聊富媒体预上传                 pp=0 qp=0 body=0 resp=4 types=UploadPart,UploadConfig | wiki/develop/api-v2autogen/api/v2_users_user_id_upload_prepare.post.html
+POST   /v2/users/A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4/stream_messages 流式发送单聊消息                 pp=0 qp=0 body=0 resp=4 types=MessageExtInfo | wiki/develop/api-v2autogen/api/v2_users_user_openid_stream_messages.post.html
+POST   /v2/users/{user_id}/upload_part_finish                   单聊分片上传完成                 pp=1 qp=0 body=4 resp=0 types= | wiki/develop/api-v2autogen/api/v2_users_user_id_upload_part_finish.post.html
+POST   /v2/users/{user_id}/upload_prepare                       单聊富媒体预上传                 pp=1 qp=0 body=6 resp=4 types=UploadPart,UploadConfig | wiki/develop/api-v2autogen/api/v2_users_user_id_upload_prepare.post.html
+POST   /v2/users/{user_openid}/files                            单聊富媒体上传                  pp=1 qp=0 body=5 resp=5 types= | wiki/develop/api-v2autogen/api/v2_users_user_openid_files.post.html
+POST   /v2/users/{user_openid}/messages                         发送单聊消息                   pp=1 qp=0 body=11 resp=3 types=MessageMarkdown,Keyboard,KeyboardContent,Row | wiki/develop/api-v2autogen/api/v2_users_user_openid_messages.post.html
+DELETE /v2/users/{user_openid}/messages/{message_id}            撤回单聊消息                   pp=2 qp=0 body=0 resp=0 types= | wiki/develop/api-v2autogen/api/v2_users_user_openid_messages_message_id.delete.html
+POST   /v2/users/{user_openid}/stream_messages                  流式发送单聊消息                 pp=1 qp=0 body=10 resp=4 types=MessageExtInfo | wiki/develop/api-v2autogen/api/v2_users_user_openid_stream_messages.post.html
+
+--- EVENTS ---
+C2C_MESSAGE_CREATE         GROUP_AND_C2C_EVENT (1<<25)    单聊消息事件               body=9 types=User,MessageScene,MessageAttachment,ARKData,MsgElement
+C2C_MSG_RECEIVE            GROUP_AND_C2C_EVENT (1<<25)    单聊消息接收开启             body=2 types=
+C2C_MSG_REJECT             GROUP_AND_C2C_EVENT (1<<25)    单聊消息接收关闭             body=2 types=
+CHANNEL_CREATE             GUILDS (1<<0)                  子频道创建                body=7 types=
+CHANNEL_DELETE             GUILDS (1<<0)                  子频道删除                body=7 types=
+CHANNEL_UPDATE             GUILDS (1<<0)                  子频道更新                body=7 types=
+FRIEND_ADD                 GROUP_AND_C2C_EVENT (1<<25)    用户添加好友               body=6 types=FriendAuthor
+FRIEND_DEL                 GROUP_AND_C2C_EVENT (1<<25)    用户删除好友               body=3 types=FriendAuthor
+GROUP_ADD_ROBOT            GROUP_AND_C2C_EVENT (1<<25)    机器人加入群聊              body=3 types=
+GROUP_AT_MESSAGE_CREATE    GROUP_AND_C2C_EVENT (1<<25)    群@机器人消息              body=11 types=User,MessageScene,MessageAttachment,ARKData,MsgElement
+GROUP_DEL_ROBOT            GROUP_AND_C2C_EVENT (1<<25)    机器人退出群聊              body=3 types=
+GROUP_JOIN_REQUEST         GROUP_MEMBER_EVENT (1<<24)     用户申请加群事件             body=12 types=VerifyInfo,ReviewQA,AutoAppproved
+GROUP_MEMBER_ADD           GROUP_MEMBER_EVENT (1<<24)     群成员加入                body=4 types=
+GROUP_MEMBER_REMOVE        GROUP_MEMBER_EVENT (1<<24)     群成员退出                body=4 types=
+GROUP_MESSAGE_CREATE       GROUP_AND_C2C_EVENT (1<<25)    群消息（全量模式）            body=11 types=User,MessageScene,MessageAttachment,ARKData,MsgElement
+GROUP_MSG_RECEIVE          GROUP_AND_C2C_EVENT (1<<25)    群聊消息接收开启             body=3 types=
+GROUP_MSG_REJECT           GROUP_AND_C2C_EVENT (1<<25)    群聊消息接收关闭             body=3 types=
+GUILD_CREATE               GUILDS (1<<0)                  频道创建                 body=9 types=
+GUILD_DELETE               GUILDS (1<<0)                  频道解散                 body=9 types=
+GUILD_UPDATE               GUILDS (1<<0)                  频道更新                 body=9 types=
+INTERACTION_CREATE         INTERACTION (1<<26)            互动事件                 body=13 types=InteractionData,InteractionResolved,InteractionMessageScene,AuthorizeData
+SUBSCRIBE_MESSAGE_STATUS   GROUP_AND_C2C_EVENT (1<<25)    订阅消息授权状态变更           body=3 types=SubscribeMsgTemplateResult
+
+--- TYPE REGISTRY (138) ---
+1                          X-Signature-Ed25519:HTTP Header 中透传 Signature, X-Signature-Timestamp:HTTP Header 透传的签名时间戳, HTTP Body:HTTP 请求中 Body 值
+APIPermission              path:string, method:string, desc:string, auth_status:int
+APIPermissionDemand        guild_id:string, channel_id:string, api_identify:APIPermissionDemandIdentify, title:string, desc:string
+APIPermissionDemandIdentify path:string, method:string
+ARKData                    prompt:string, ark_type:string, ark_name:string, fields:object
+Action                     type:integer, permission:Permission, data:string, click_limit:integer, unsupport_tips:string, enter:boolean, reply:boolean, anchor:integer, modal:Modal
+Alignment                  ALIGNMENT_LEFT:0, ALIGNMENT_MIDDLE:1, ALIGNMENT_RIGHT:2
+Announces                  guild_id:string, channel_id:string, message_id:string, announces_type:uint32, recommend_channels:RecommendChannel  数组
+AppSecret                  AppID:机器人 ID, AppSecret:机器人密钥
+AtGuildInfo                guild_id:string, guild_name:string
+AtInfo                     type:AtType, user_info:AtUserInfo, role_info:AtRoleInfo, guild_info:AtGuildInfo
+AtRoleInfo                 role_id:uint64, name:string, color:uint32
+AtType                     AT_EXPLICIT_USER:1, AT_ROLE_GROUP:2, AT_GUILD:3
+AtUserInfo                 id:string, nick:string
+AudioAction                guild_id:string, channel_id:string, audio_url:string, text:string
+AudioControl               audio_url:string, text:string, status:STATUS
+AuditResult                guild_id:string, channel_id:string, author_id:string, thread_id:string, post_id:string, reply_id:string, type:uint32, result:uint32, err_msg:string
+AuditType                  PUBLISH_THREAD:1, PUBLISH_POST:2, PUBLISH_REPLY:3
+AuthorizeData              opt_scene:string, scope:string
+AutoAppproved              strategy_id:string
+BlacklistUser              union_openid:string, member_openid:string, username:string, banned_at:string, bot:boolean
+Button                     id:string, render_data:RenderData, action:Action, group_id:string
+Channel                    id:string, guild_id:string, name:string, type:integer, sub_type:integer, position:integer, parent_id:string, owner_id:string, private_type:integer, speak_permission:integer, application_id:string, permissions:string
+ChannelInfo                channel_id:uint64, channel_name:string
+ChannelPermissions         channel_id:string, user_id/role_id:string, permissions:string
+ChannelSubType             0:闲聊, 1:公告, 2:攻略, 3:开黑
+ChannelType                0:文字子频道, 1:保留，不可用, 2:语音子频道, 3:保留，不可用, 4:子频道分组, 10005:直播子频道, 10006:应用子频道, 10007:论坛子频道
+DMS                        guild_id:string, channel_id:string, create_time:string
+Data                       url:string
+DefaultRoleIDsID           身份组ID默认值:描述, 1:全体成员, 2:管理员, 4:群主/创建者, 5:子频道管理员
+Elem                       text:TextElem, image:ImageElem, video:VideoElem, url:URLElem, type:ElemType
+ElemType                   ELEM_TYPE_TEXT:1, ELEM_TYPE_IMAGE:2, ELEM_TYPE_VIDEO:3, ELEM_TYPE_URL:4
+Embed                      机器人接收:-, 机器人发送:不支持
+Emoji                      id:string, type:uint32
+EmojiInfo                  id:string, type:string, name:string, url:string
+EmojiType                  1:系统表情, 2:emoji表情
+Format                     FORMAT_TEXT:1, FORMAT_HTML:2, FORMAT_MARKDOWN:3, FORMAT_JSON:4
+FriendAuthor               union_openid:string
+GlobalMuteRule             mode:string, schedule_rules:[]MuteScheduleRule, recurring_rules:[]MuteRecurringRule
+GroupAction                op:string, group_openids:[]string, group_ids:array
+Guild                      id:string, name:string, icon:string, owner_id:string, owner:bool, member_count:int, max_members:int, description:string, joined_at:string
+GuildInfo                  id:string, name:string, icon:string, owner_id:string, owner:boolean, joined_at:string, member_count:integer, max_members:integer, description:string
+HTTP                       200:成功, 204:成功，但是无包体，一般用于删除操作, 201, 202:异步操作成功，虽然说成功，但是会返回一个 error body，需要特殊处理, 401:认证失败, 404:未找到 API, 405:HTTP Method 不允许, 429:频率限制, 500:处理失败, 504:处理失败
+ImageElem                  third_url:string, width_percent:double
+InputNotify                input_type:integer, input_second:integer
+InteractionData            type:integer, resolved:InteractionResolved
+InteractionMessageScene    ext:[]string
+InteractionResolved        button_data:string, button_id:string, user_id:string, feature_id:string, message_id:string, feedback_opt:string, checked:integer, action:string, message_scene:InteractionMessageScene, authorize_data:AuthorizeData
+JoinApprovalStrategy       strategy_id:string, group_openids:[]string, group_ids:array, whitelist_user_count:integer, is_enable:string, expire_at:string, created_at:string, updated_at:string, remark:string
+JoinRequest                join_request_id:string, risk_tips:string, union_openid:string, member_openid:string, username:string, apply_at:string, apply_source:string, invited_by:string, bot:boolean, verify_info:VerifyInfo
+Keyboard                   id:string, content:KeyboardContent
+KeyboardContent            rows:[]Row
+Markdown                   发 ✅ / 收 ❌:收发 ✅
+MediaInfo                  file_info:string
+Member                     member_openid:string, username:string, member_role:string, bot:boolean, joined_at:string, union_openid:string
+MemberMuteState            member_openid:string, mute_expire_at:string, username:string, union_openid:string
+MemberWithGuildID          guild_id:string, user:User, nick:string, roles:string 数组, joined_at:ISO8601 timestamp
+Menu                       items:[]MenuItem
+MenuItem                   name:string, type:string, sub_menu_items:[]SubMenuItem, send_message:string, link:string, switch:Switch
+Message                    id:string, channel_id:string, guild_id:string, content:string, timestamp:ISO8601 timestamp, edited_timestamp:ISO8601 timestamp, mention_everyone:bool, author:User 对象, attachments:MessageAttachment 对象数组, embeds:MessageEmbed 对象数组, mentions:User 对象数组, member:Member 对象, ark:MessageArk ark消息对象, seq:int, seq_in_channel:string, message_reference:MessageReference 对象
+MessageArk                 template_id:int, kv:MessageAkrKv arkkv数组
+MessageArkKv               key:string, value:string, obj:MessageArkObj arkobj类型的数组
+MessageArkObj              obj_kv:MessageArkObjKv objkv类型的数组
+MessageArkObjKv            key:string, value:string
+MessageAttachment          url:string, filename:string, width:integer, height:integer, size:integer, content_type:string, voice_wav_url:string, asr_refer_text:string
+MessageAudited             audit_id:string, message_id:string, guild_id:string, channel_id:string, audit_time:ISO8601 timestamp, create_time:ISO8601 timestamp, seq_in_channel:string
+MessageDelete              message:Message 对象, op_user:User 对象
+MessageEmbed               title:string, prompt:string, thumbnail:MessageEmbedThumbnail 对象, fields:MessageEmbedField 对象数组
+MessageEmbedField          name:string
+MessageEmbedThumbnail      url:string
+MessageExtInfo             ref_idx:string
+MessageMarkdown            template_id:integer, content:string, custom_template_id:string, force_verify_image_resource:boolean
+MessageMarkdownParams      key:string, values:string 类型的数组
+MessageReaction            user_id:string, guild_id:string, channel_id:string, target:ReactionTarget, emoji:Emoji
+MessageReference           message_id:string
+MessageScene               source:string, ext:[]string
+MessageSetting             disable_create_dm:string, disable_push_msg:string, channel_ids:string 数组, channel_push_max_num:uint32
+Modal                      content:string, confirm_text:string, cancel_text:string
+MsgElement                 msg_idx:string, author:User, message_type:integer, content:string, attachments:[]MessageAttachment, ark_data:ARKData, msg_elements:[]MsgElement
+MuteRecurringRule          task_id:string, weekdays:[]integer, start_time:string, end_time:string, enabled:boolean
+MuteScheduleRule           task_id:string, start_at:string, end_at:string, enabled:boolean
+Objectchannelinfo          channel_name:string, channel_type:number, is_accessible:number
+Objectobject               open_guild_id:string, channel_id:string, success:function, fail:function, complete:function
+Panel                      items:[]PanelItem, remark:string, version:integer
+PanelItem                  name:string, desc:string, type:string, only_admin:boolean, link:string
+PanelRecord                panel_id:string, scope:string, target_type:string, panel:Panel, created_at:string, updated_at:string, version:integer
+Paragraph                  elems:Elem, props:ParagraphProps
+ParagraphProps             alignment:int32
+Path                       channel_id:string, message_id:string, type:int, id:string
+Permission                 type:integer, specify_user_ids:[]string, specify_role_ids:[]string
+Permissions                权限:值, 可查看子频道:0x0000000001 (1 << 0), 可管理子频道:0x0000000002 (1 << 1), 可发言子频道:0x0000000004 (1 << 2)
+PinsMessage                guild_id:string, channel_id:string, message_ids:string 数组
+PlatImage                  url:string, width:uint32, height:uint32, image_id:string
+PlatVideo                  url:string, width:uint32, height:uint32, video_id:string, duration:uint32, cover:PlatImage
+Post                       guild_id:string, channel_id:string, author_id:string, post_info:object
+PostInfo                   thread_id:string, post_id:string, content:string, date_time:string
+PrivateType                0:公开频道, 1:群主管理员可见, 2:群主管理员+指定成员，可使用 修改子频道权限接口 指定成员
+Query                      cookie:string, limit:int
+ReactionTarget             id:string, type:ReactionTargetType
+ReactionTargetType         0:消息, 1:帖子, 2:评论, 3:回复
+RecommendChannel           channel_id:string, introduce:string
+RemindType                 提醒类型 id:描述, 0:不提醒, 1:开始时提醒, 2:开始前 5 分钟提醒, 3:开始前 15 分钟提醒, 4:开始前 30 分钟提醒, 5:开始前 60 分钟提醒
+RenderData                 label:string, visited_label:string, style:integer
+Reply                      guild_id:string, channel_id:string, author_id:string, reply_info:object
+ReplyInfo                  thread_id:string, post_id:string, reply_id:string, content:string, date_time:string
+ReviewQA                   question:string, answer:string
+RichObject                 type:int, text_info:object, at_info:object, url_info:object, emoji_info:object, channel_info:object
+RichText                   paragraphs:Paragraph
+RichType                   TEXT:1, AT:2, URL:3, EMOJI:4, CHANNEL:5, VIDEO:10, IMAGE:11
+Role                       id:string, name:string, color:uint32, hoist:uint32, number:uint32, member_limit:uint32
+Row                        buttons:[]Button
+STATUS                     START:0, PAUSE:1, RESUME:2, STOP:3
+Schedule                   id:string, name:string, description:string, start_timestamp:string, end_timestamp:string, creator:Member, jump_channel_id:string, remind_type:string
+SessionStartLimit          total:int, remaining:int, reset_after:int, max_concurrency:int
+SetMemberMuteState         op:string, member_openid:string, mute_expire_at:string
+SpeakPermission            0:无效类型, 1:所有人, 2:群主管理员+指定成员，可使用 修改子频道权限接口 指定成员
+SubMenuItem                name:string, type:string, send_message:string, link:string
+SubscribeMsgTemplateResult template_id:integer, custom_template_id:string, op:integer, subscribe_id:string, subscribe_ts:integer, update_ts:integer
+Switch                     switch_id:string, default:boolean
+TextElem                   text:string, props:TextProps
+TextInfo                   text:string
+TextProps                  font_bold:bool, italic:bool, underline:bool
+Thread                     guild_id:string, channel_id:string, author_id:string, thread_info:object
+ThreadInfo                 thread_id:string, title:string, content:string, date_time:ISO8601 timestamp
+URLElem                    url:string, desc:string
+URLInfo                    url:string, display_text:string
+UploadConfig               concurrency:integer, retry_timeout:integer, retry_delay:integer
+UploadPart                 index:integer, presigned_url:string, block_size:string
+User                       id:string, username:string, bot:boolean, union_openid:string, union_user_account:string, user_openid:string, member_openid:string, member_role:string
+VerifyInfo                 method:string, verify_message:string, review_qa_list:[]ReviewQA
+VideoElem                  third_url:string
+WebSocket                  4001:无效的 opcode, 4002:无效的 payload, 4007:seq 错误, 4006:无效的 session id，无法继续 resume，请 identify, 4008:发送 payload 过快，请重新连接，并遵守连接后返回的频控信息, 4009:连接过期，请重连并执行 resume 进行重新连接, 4010:无效的 shard, 4011:连接需要处理的 guild 过多，请进行合理的分片, 4012:无效的 version, 4013:无效的 intent, 4014:intent 无权限, 4900~4913:内部错误，请重连, 4914:机器人已下架，只允许连接沙箱环境，请断开连接，检验当前连接环境, 4915:机器人已封禁，不允许连接，请断开连接，申请解封后再连接
+encryptedData              guild_name:string, member_role:number, channel_info:Object, member_userid:string, member_nick:string, open_guild_id:string
+messagetype                message_type:含义, 0:普通文本, 3:结构化卡片, 103:引用消息
+msgtype                    msg_type:类型, 0:文本, 2:Markdown, 7:富媒体
+multipartformdata          file_image:file
+opcode                     CODE:名称, 0:Dispatch, 1:Heartbeat, 2:Identify, 6:Resume, 7:Reconnect, 9:Invalid Session, 10:Hello, 11:Heartbeat ACK, 12:HTTP Callback ACK, 13:回调地址验证
+section                    Authorization:string

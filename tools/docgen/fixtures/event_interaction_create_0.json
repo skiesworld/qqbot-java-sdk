@@ -1,0 +1,5 @@
+{
+ "event": "INTERACTION_CREATE",
+ "index": 0,
+ "raw": "{\n  \"application_id\": \"1904842048\",\n  \"chat_type\": 2,\n  \"data\": {\n    \"resolved\": {\n      \"button_data\": \"confirm:once\",\n      \"button_id\": \"allow-once\"\n    },\n    \"type\": 11\n  },\n  \"id\": \"1b13d569-4610-4ab9-bc51-feecc5def6d4\",\n  \"scene\": \"c2c\",\n  \"timestamp\": \"2026-07-20T21:53:54+08:00\",\n  \"type\": 11,\n  \"user_openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"version\": 1\n}"
+}

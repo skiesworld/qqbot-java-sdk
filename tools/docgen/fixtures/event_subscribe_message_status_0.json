@@ -1,0 +1,5 @@
+{
+ "event": "SUBSCRIBE_MESSAGE_STATUS",
+ "index": 0,
+ "raw": "{\n  \"openid\": \"A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4\",\n  \"result\": [\n    {\n      \"template_id\": 10001,\n      \"custom_template_id\": \"tpl_abc123\",\n      \"op\": 1,\n      \"subscribe_id\": \"sub_def456\",\n      \"subscribe_ts\": 1784276820,\n      \"update_ts\": 1784276820\n    },\n    {\n      \"template_id\": 10002,\n      \"custom_template_id\": \"tpl_xyz789\",\n      \"op\": 2,\n      \"subscribe_id\": \"sub_ghi012\",\n      \"subscribe_ts\": 1784276815,\n      \"update_ts\": 1784276820\n    }\n  ]\n}"
+}

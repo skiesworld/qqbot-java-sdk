@@ -1,0 +1,5 @@
+{
+ "event": "GUILD_UPDATE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"123456789012345678\",\n  \"name\": \"更新后的频道\",\n  \"owner_id\": \"123456789012345678\",\n  \"icon\": \"https://thirdqq.qlogo.cn/0\",\n  \"member_count\": 12,\n  \"max_members\": 1000,\n  \"description\": \"更新后的描述\"\n}"
+}

@@ -1,0 +1,5 @@
+{
+ "event": "CHANNEL_UPDATE",
+ "index": 0,
+ "raw": "{\n  \"id\": \"123456\",\n  \"guild_id\": \"123456789012345678\",\n  \"name\": \"更新后的子频道\",\n  \"type\": 0,\n  \"sub_type\": 0,\n  \"position\": 1,\n  \"owner_id\": \"123456789012345678\"\n}"
+}

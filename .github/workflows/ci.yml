@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 17 is the supported floor (the jar is compiled with --release 17);
+        # 21 is the JDK most consumers will run Gradle on.
+        java: [17, 21]
+    steps:
+      - uses: actions/checkout@v7
+
+      # Rejects a wrapper jar that was not published by Gradle (supply-chain guard).
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Build and test
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          arguments: clean build
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-jdk${{ matrix.java }}
+          path: |
+            build/reports/tests/
+            build/test-results/
+            build/reports/problems/
+          retention-days: 7
+
+  # The generated layer must stay in step with the official docs snapshot in tools/docgen.
+  codegen:
+    name: docgen reproducibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Regenerate model and API layer from spec.json
+        run: |
+          python tools/docgen/gen_java.py
+          ./gradlew build
+      - name: Fail when generated sources are not committed as-is
+        run: git diff --exit-code -- src tools/docgen/spec.json || {
+            echo "::error::run 'python tools/docgen/gen_java.py' and commit the output"; git diff --stat; exit 1; }
