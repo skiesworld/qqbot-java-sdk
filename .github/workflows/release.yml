@@ -68,6 +68,22 @@ jobs:
           fi
           echo "publishing $group:$artifact:$RELEASE_VERSION from https://github.com/$repo"
 
+      # Maven Central publishing is optional until the secrets exist: without them the release
+      # still produces a GitHub Release with the jars attached.
+      - name: Detect Maven Central credentials
+        id: central
+        env:
+          CENTRAL_USER: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          CENTRAL_PASS: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          if [ -n "$CENTRAL_USER" ] && [ -n "$CENTRAL_PASS" ] && [ -n "$SIGNING_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD / SIGNING_KEY are not set;"               "skipping the Maven Central upload and publishing only the GitHub Release."
+          fi
+
       - name: Set up JDK 21
         uses: actions/setup-java@v6
         with:
@@ -78,6 +94,7 @@ jobs:
         run: ./gradlew assemble plainJavadocJar -PVERSION_NAME=${{ steps.version.outputs.value }}
 
       - name: Upload artifacts to Maven Central and release
+        if: steps.central.outputs.enabled == 'true' 
         # mavenCentralUsername/Password are the Central Portal *user token*, not your login.
         # signingInMemoryKey is `gpg --export-secret-keys --armor <keyid>` output.
         env:
@@ -87,6 +104,10 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache -PVERSION_NAME=${{ steps.version.outputs.value }}
+
+      - name: Note the skipped Central upload
+        if: steps.central.outputs.enabled != 'true'
+        run: echo "Released to GitHub only; add the Central secrets (see README) to publish to Maven Central."
 
       - name: Create the GitHub Release
         env:
