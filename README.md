@@ -18,7 +18,9 @@ dependencies {
 }
 ```
 
-尚未发布到 Maven Central 时，可直接用本地构建产物或 JitPack。
+坐标已发布到 Maven Central（自 0.0.3 起，带 `.asc` 签名与 Gradle module metadata）：
+<https://central.sonatype.com/artifact/io.github.skiesworld/qqbot-java-sdk>。0.0.1 与 0.0.2 只有 GitHub Release 产物，
+不在 Central 上。
 
 从源码构建：
 
