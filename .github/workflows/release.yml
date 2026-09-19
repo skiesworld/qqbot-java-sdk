@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'existing tag to (re)publish, e.g. v0.0.2'
+        description: 'existing tag to (re)publish, e.g. v0.0.3'
         required: true
-        default: v0.0.2
+        default: v0.0.3
 
 permissions:
   contents: write

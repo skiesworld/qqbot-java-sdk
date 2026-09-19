@@ -14,7 +14,7 @@
 // build.gradle.kts
 dependencies {
     // groupId 取决于你在 gradle.properties 里设置的 GROUP，见「发布与 CI」
-    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.2")
+    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.3")
 }
 ```
 
