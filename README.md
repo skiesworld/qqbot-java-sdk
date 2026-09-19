@@ -13,7 +13,7 @@
 // build.gradle.kts
 dependencies {
     // groupId 取决于你在 gradle.properties 里设置的 GROUP，见「发布与 CI」
-    implementation("io.github.skiesworld:qqbot-java-sdk:1.0.0")
+    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.1")
 }
 ```
 
@@ -235,7 +235,7 @@ src/main/java/io/github/qqbot/
 
 - `ci.yml`：PR / main 推送时校验 wrapper 签名，并在 **JDK 17 与 21** 上 `clean build`；
   另有 `codegen` 作业重跑 `tools/docgen/gen_java.py`，生成结果与提交不一致就报错（防止手改生成码）。
-- `release.yml`：打 tag 即发布 —— `git tag v1.2.3 && git push origin v1.2.3`。
+- `release.yml`：打 tag 即发布 —— `git tag v0.0.1 && git push origin v0.0.1`。
   它会校验 tag 是合法语义化版本、校验发布坐标、跑 `publishAndReleaseToMavenCentral`（上传 → 等 Central Portal
   校验通过 → 自动 release），最后用 `gh release create` 建 Release 并附上 jar / sources / javadoc；
   带 `-rcN` 后缀的 tag 会自动标记为 prerelease。
@@ -269,7 +269,7 @@ src/main/java/io/github/qqbot/
 ./gradlew generatePomFileForMavenPublication   # 生成 build/publications/maven/pom-default.xml
 ./gradlew assemble plainJavadocJar -PVERSION_NAME=0.0.1-test
 # 有密钥但没有 Central 账号时，可发到本地仓库看目录结构：
-./gradlew publishToMavenLocal -PVERSION_NAME=0.0.1-test && ls ~/.m2/repository/io/github/<user>/
+./gradlew publishToMavenLocal -PVERSION_NAME=0.0.1-test && ls ~/.m2/repository/io/github/skiesworld/
 ```
 
 版本号只来自 tag：工作流用 `-PVERSION_NAME=${tag#v}` 覆盖 `gradle.properties` 里的值。

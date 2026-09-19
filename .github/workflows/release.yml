@@ -1,12 +1,19 @@
 name: Release
 
 # Tag a version and it publishes to Maven Central and creates the GitHub Release:
-#   git tag v1.0.0 && git push origin v1.0.0
+#   git tag v0.0.1 && git push origin v0.0.1
 on:
   push:
     # tag filters are globs, not regexes: filter loosely and validate strictly below
     tags:
       - 'v*'
+  # re-run for an existing tag, e.g. once the Maven Central secrets have been added
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'existing tag to (re)publish, e.g. v0.0.1'
+        required: true
+        default: v0.0.1
 
 permissions:
   contents: write
@@ -23,17 +30,21 @@ jobs:
 
       - name: Resolve the version from the tag
         id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [[ ! $GITHUB_REF_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::tag '$GITHUB_REF_NAME' is not a release tag like v1.2.3 or v1.2.3-rc1"
+          ref="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if [[ ! $ref =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag '$ref' is not a release tag like v0.0.1 or v0.0.2-rc1"
             exit 1
           fi
-          version=${GITHUB_REF_NAME#v}
+          version=${ref#v}
           prerelease=false
           case $version in *-*) prerelease=true ;; esac
           {
             echo "value=$version"
             echo "prerelease=$prerelease"
+            echo "tag=$ref"
           } >> "$GITHUB_OUTPUT"
           echo "releasing $version (prerelease=$prerelease)"
 
@@ -81,7 +92,7 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD / SIGNING_KEY are not set;"               "skipping the Maven Central upload and publishing only the GitHub Release."
+            echo "::warning::MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD / SIGNING_KEY are not set; publishing only the GitHub Release."
           fi
 
       - name: Set up JDK 21
@@ -113,10 +124,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --generate-notes \
-            --title "qqbot-java-sdk $VERSION" \
-            build/libs/qqbot-java-sdk-$VERSION.jar \
-            build/libs/qqbot-java-sdk-$VERSION-javadoc.jar \
-            build/libs/qqbot-java-sdk-$VERSION-sources.jar
+          files=(build/libs/qqbot-java-sdk-$VERSION.jar
+                 build/libs/qqbot-java-sdk-$VERSION-javadoc.jar
+                 build/libs/qqbot-java-sdk-$VERSION-sources.jar)
+          # re-running a tag must not fail: upload onto the existing release instead
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            args=()
+            [ "$PRERELEASE" = true ] && args+=(--prerelease)
+            gh release create "$TAG" --generate-notes "${args[@]}" \
+              --title "qqbot-java-sdk $VERSION" "${files[@]}"
+          fi
