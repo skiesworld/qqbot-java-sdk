@@ -13,14 +13,9 @@
 ```kotlin
 // build.gradle.kts
 dependencies {
-    // groupId 取决于你在 gradle.properties 里设置的 GROUP，见「发布与 CI」
     implementation("io.github.skiesworld:qqbot-java-sdk:0.0.3")
 }
 ```
-
-坐标已发布到 Maven Central（自 0.0.3 起，带 `.asc` 签名与 Gradle module metadata）：
-<https://central.sonatype.com/artifact/io.github.skiesworld/qqbot-java-sdk>。0.0.1 与 0.0.2 只有 GitHub Release 产物，
-不在 Central 上。
 
 从源码构建：
 
@@ -49,8 +44,6 @@ try (QQBotClient bot = QQBotClient.create("你的AppID", "你的AppSecret")) {
 }
 ```
 
-`connect()` 之后不需要任何轮询：网关收 `HELLO` → 发 `IDENTIFY` → `READY`，掉线后带 `session_id` + `seq` 发 `RESUME` 补收漏掉的事件。
-
 ## 配置
 
 ```java
@@ -72,29 +65,35 @@ BotConfig config = BotConfig.builder("AppID")
 QQBotClient bot = QQBotClient.create(config);
 ```
 
-鉴权细节：`POST {apiBase}/app/getAppAccessToken`，请求头 `Authorization: QQBot {access_token}`。
-`access_token` 有效期约 7200 秒，SDK 缓存并在到期前 60 秒自动刷新；收到 401 时会作废缓存并重新获取一次。
+`access_token` 由 SDK 缓存并自动刷新，401 时作废重取一次。
 
-## 事件入口：两种传输，一条总线
+### 传输：网关或回调
 
-入口只有两种——机器人主动连上去的**网关 WebSocket**，和平台 POST 过来的 **HTTP 回调**；选哪种由 `BotConfig.transport` 决定（见第 3 小节）。两者最后都调用同一个 `EventBus.dispatch`，所以监听、注解 handler、`@Command` 只写一遍。业务代码怎么组织见 [用注解组织机器人逻辑](#用注解组织机器人逻辑)。
-
-### 1. WebSocket 网关（默认）
+默认走网关，`bot.connect()` 就够了。要平台回调，换个配置项，业务代码一行不改：
 
 ```java
-Gateway gateway = bot.gateway();
-gateway.addListener(new Gateway.Listener() {
-    public void onReady(String sessionId, JsonElement user) { /* 上线成功 */ }
-    public void onResumed() { /* 断线后补收事件完成 */ }
-    public void onStateChange(Gateway.State from, Gateway.State to) { /* 连接状态 */ }
-    public void onError(Throwable t) { /* 网关异常，含 4xxx 关闭码 */ }
-});
-bot.connect();
+BotConfig config = BotConfig.builder(appId).clientSecret(secret)
+        .transport(BotConfig.Transport.WEBHOOK)   // 每个 bot 的回调路由默认是 /qq/{appId}
+        .build();
 ```
 
-网关关闭码语义已内建处理：`4009/4008` 走 Resume，`4006/4007/49xx` 重新 Identify，`4914/4915`（下架/封禁）判定为致命错误并停止重连。
+回调地址是按 bot 登记的，所以多个 bot 共用一个端口：
 
-### 2. 事件监听
+```java
+try (WebhookServer endpoint = new WebhookServer("0.0.0.0", 8080).start()) {
+    endpoint.mount(botA).mount(botB);     // /qq/<A> 与 /qq/<B>，各自的验签密钥与总线互不相干
+}
+```
+
+只有一个 bot 时把端口写进配置（`.webhook(8080, null)`），端点随 `bot.start()` 起、随 `bot.close()` 关，`bot.webhookServer().port()` 给出实际端口（配 0 就是系统分配的）。已经有 Web 框架就两个都不用起，拿返回值当响应体：
+
+```java
+String body = bot.webhook().handle(rawBody, timestamp, signature, appid);
+```
+
+网关状态想监听就挂 `Gateway.Listener`（`onReady` / `onResumed` / `onStateChange` / `onError`）；心跳、断线 Resume 与 `4xxx` 关闭码的重连判定都在 SDK 里。
+
+## 监听事件
 
 ```java
 EventBus bus = bot.events();
@@ -118,52 +117,9 @@ event.data();   // 生成的事件模型，例如 C2CMessageCreate
 event.targetId();  // group_openid / user_openid / channel_id / author 中可用的会话对象
 ```
 
-### 3. HTTP 回调（Webhook）
+### 注解 handler
 
-选哪种入口是配置项，不是代码分支。回调地址是**按 bot 给的**，所以多个 bot 不必各占一个端口：一个监听端点，路由默认 `/qq/{appId}`。
-
-```java
-BotConfig config = BotConfig.builder("AppID").clientSecret("AppSecret")
-        .transport(BotConfig.Transport.WEBHOOK)   // 路由不用写，默认就是 /qq/{appId}
-        .build();
-
-QQBotClient a = QQBotClient.create(config);
-QQBotClient b = QQBotClient.create(otherAppConfig);
-
-try (WebhookServer endpoint = new WebhookServer("0.0.0.0", 8080).start()) {
-    a.handlers().register(new ChatHandlers());     // 与网关模式一模一样
-    b.handlers().register(new ChatHandlers());
-    endpoint.mount(a).mount(b);                    // /qq/<AppID A> 与 /qq/<AppID B> 同端口共存
-}
-```
-
-路由之间不串：每条路由用自己的 `WebhookHandler`（各自的 Bot Secret、各自的 `appid` 校验、各自的总线），A 的签名打到 B 的路由只会得到 401。`mount(path, handler)` 也接受自定义路径，`unmount(path)` 摘掉，`paths()` 看当前挂了哪些。
-
-只有一个 bot 时可以更省事——把端口写进配置，端点随 bot 起落：
-
-```java
-BotConfig.builder("AppID").clientSecret(secret).webhook(8080, null).build();
-try (QQBotClient bot = QQBotClient.create(config)) {
-    bot.start();                       // 按 transport 起：网关 or 自己的回调端点
-    bot.webhookServer().port();         // 实际端口（配 0 时由系统分配）
-}
-```
-
-自带 Web 框架的话两个端点都不用起：
-
-```java
-bot.webhook().handle(rawBody, timestamp, signature, appid);   // 返回值就是你要回复的响应体
-bot.webhookServer();                                           // 这个 bot 自己的端点（若存在）
-bot.connect();                                                 // 显式连网关；与回调同时开也行，共用同一总线
-```
-
-`WebhookHandler` 与 `WebhookServer` 分家的原因是三件事只有 HTTP 侧需要：验签必须在任何用户代码看到 payload 之前完成、opcode 13 的地址校验是**当次请求的响应体**而不是事件、以及回调必须同步返回 ACK `{"op":12}`。总线对这些一无所知，它只负责分发。
-
-验签规则与官方一致：以 Bot Secret 重复填充出 32 字节 seed 派生 Ed25519 密钥，签名体为 `timestamp + body`。验签失败抛 `SignatureException`，内置端点把它映射成 401 且不投递事件；自己挂路由时请按 4xx 处理。`appid` 头是签名之外的附加校验，没带该头但签名正确时仍然通过。
-
-## 用注解组织机器人逻辑
-
-监听器适合一两个事件，机器人长大了更好用的是「一个类，一个方法一个事件」：
+一个类、一个方法一个事件，比一串 lambda 好维护：
 
 ```java
 @BotHandlers("chat")
@@ -179,20 +135,12 @@ public class ChatHandlers implements BotHandler {
     public void onFuture(JsonObject body) { }
 }
 
-bot.handlers().register(new ChatHandlers());      // 默认就这一行
+bot.handlers().register(new ChatHandlers());      // 就这一行
 ```
 
-注解只是**声明**，总得有人把对象接到总线上。默认路径就一行 `bot.handlers().register(...)`：反射装配，编译期不需要任何处理器，`Api`/`QQBotClient` 这类参数也能注入。另外两个入口各管一种情况：
+参数按声明的类型逐个填：`QQEvent`、`EventType`、`JsonObject`/`JsonElement`、`Api`、`QQBotClient`，其余引用类型当 payload 反序列化——所以方法想要什么就拿什么，不要的不写。绑不上的（基本类型、数组、没有 client 却声明 `Api`）在注册时就抛 `IllegalArgumentException`；payload 缺失或对不上号就跳过这次调用并记 debug 日志。
 
-| 入口 | 什么时候用 |
-| --- | --- |
-| `bot.handlers().register(obj)` | 默认。自己写的 handler，当场接上 |
-| `bot.handlers().registerDiscovered()` | 想让**别的 jar** 里的 handler 自动被找到。需要 `META-INF/services` 清单，由下面那个可选处理器生成 |
-| `bot.events().register(obj)` | 手上只有 `EventBus`、没有 client 时（单测、自建总线）。是第一条的子集：拿不到 `Api`/`client` 参数 |
-
-参数按类型注入：`QQEvent`、`EventType`、`JsonObject`/`JsonElement`、`Api`、`QQBotClient`，其余引用类型一律当 payload 反序列化。绑定不了的（基本类型、数组、没有 client 却声明 `Api`）在 **注册时** 就抛 `IllegalArgumentException`，不会等到第一条消息才暴露；payload 缺失或对不上号时跳过这次调用并打 debug 日志，用户代码的异常也永远到不了网关线程。
-
-自动发现为什么走 `ServiceLoader` 而不是运行时扫 classpath：嵌套 classloader、remap 与 shade 环境（比如 MC 模组运行时）下扫描结果并不可靠，而清单是构建期产物。让 handler 类实现 `BotHandler`（无方法的标记接口）并带上 `@BotHandlers`，本 SDK 自带的注解处理器就会写出清单；不合规的类（非顶层、非 public、没实现标记接口、没有可用构造器、一个 `@BotEvent` 都没有）在**编译期**报错，而不是运行时静默少一个 handler。JDK 21+ 需要在你的构建里显式开启注解处理（`-proc:full`，或配 `--processor-path`）；没开也没关系，回到上表第一行即可。
+跨 jar 提供的 handler 用 `bot.handlers().registerDiscovered()`：类实现 `BotHandler` 并带上 `@BotHandlers`，本 SDK 自带的注解处理器在编译期生成 `META-INF/services` 清单（JDK 21+ 要显式开启注解处理：`-proc:full` 或 `--processor-path`）。没有清单也不影响上面的 `register(...)`。
 
 ### 消息段与出站构造
 
@@ -213,7 +161,7 @@ bot.api().channelMessages().sendChannelMessage(channelId, MessageBuilder.create(
 
 要清楚两件事：官方 payload 里文本与附件是**平级字段**，`content` 中没有任何占位符或偏移能告诉你图片原本插在句子的哪里，所以段序列是字段的分组而非气泡的复原；子频道/私信的发送体没有 `msg_type`（图片走 `image` URL、卡片走 `ark`），把富媒体 `file_info` 或 `keyboard` 交给 `toChannel()` 会直接抛异常，而不是发一个平台必拒的请求。没被 builder 覆盖的字段（`embed`、`input_notify`、模板 markdown）仍可改返回对象的 public 字段。
 
-### 命令匹配与角色
+### 命令与门禁
 
 命令层就是「事件监听 + 文本匹配」，所以 handler 能同时拿到 payload 与匹配结果：
 
@@ -234,9 +182,7 @@ bot.commands().describe();                                   // 给 /help 用的
 
 默认不需要前缀（群消息本就必须 @ 机器人，且平台已把该 mention 从 `content` 中剥掉），`usePrefixes("/")` 之后没带前缀的消息不再匹配。`role` 比较的是群里 `author.member_role`（member < admin < owner）；单聊与私信不报角色，那里角色门不起作用——只按角色限制群命令，别指望它在私聊里挡住谁。只匹配 `content`，纯图片/卡片消息不会触发命令，用 `CommandContext#segments()` 读它们。`@Command(on = EventType.GROUP_AT_MESSAGE_CREATE)` 可以把一条命令限定在某种消息事件上（只能从 `MessageEvents.WITH_TEXT` 里挑，填一个不带 `content` 的事件会在注册期报错——那种命令永远匹配不上）。
 
-### 门禁 `@Check`
-
-「谁能触发」对命令和事件方法都适用，写成一个注解、一条搞定，名字和类型可以混用；声明顺序即判定顺序，第一个拒绝就短路。
+门禁对命令和事件方法都适用，一条注解写完，名字和类型可以混用；声明顺序即判定顺序，第一个拒绝就短路。
 
 ```java
 @Command("清档") @Check({"groupAdmin", "superUser"})
@@ -255,6 +201,19 @@ boolean groupAdmin(GroupAtMessageCreate msg) {
 - 字符串 = 本类或父类里的 `@Check` 方法；类型 = 可复用规则。SDK 内置 `Permissions.Group/Private/Channel/Direct/GroupAdmin/GroupOwner`（读 `author.member_role`），以及要带配置的 `Permissions.scene(...)`、`Permissions.senderIn(ids)`——后者这类没有无参构造的规则，用 `bot.handlers().permission(MyRule.class, () -> new MyRule(ids))` 注册后即可在 `type` 里点名。
 - 门禁在**参数绑定之后**才被问：命令文本没匹配上时根本不会走到它。判定为假、门禁抛异常、参数绑不上，一律按「拒绝」处理并记日志——判不出来就不能放行。
 - 名字找不到、方法不返回 `boolean`、同名重载、类型无法实例化，都在注册期抛 `IllegalArgumentException`；被路由注解标记的方法必须返回 `void`（要返回判定就标 `@Check`）。
+
+## 并发与线程
+
+监听器**默认同步**跑在入口线程上：网关事件跑在 OkHttp 的 WebSocket 回调线程，回调事件跑在 `WebhookServer` 那 4 个线程之一。一个阻塞的监听者会占住它身后的整条入口——同一条连接上的后续事件排队等它，网关侧连 `HELLO`/`RESUME` 的回包也要延后（心跳是独立线程，照发，但收不到回应就可能触发重连）；回调侧则是响应变慢，平台按超时重试，你会看到同一个 `msg_id` 被推好几次。
+
+想异步就换个 `EventBus`：
+
+```java
+ExecutorService pool = Executors.newFixedThreadPool(8);
+QQBotClient bot = new QQBotClient(config, new HttpTransport(config), new EventBus(pool::execute));
+```
+
+代价是事件之间不再保证先后（同一连接的入站顺序会被线程池打乱），需要严格次序的按会话自己串。无论同步异步，监听器抛出的异常都不会中断分发、也不影响别的监听者，只记 error 日志。
 
 ## 接口调用
 
