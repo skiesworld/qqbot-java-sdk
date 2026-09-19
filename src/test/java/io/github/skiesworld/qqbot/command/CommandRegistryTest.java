@@ -6,6 +6,7 @@ import io.github.skiesworld.qqbot.QQBotClient;
 import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
 import io.github.skiesworld.qqbot.handler.BotEvent;
+import io.github.skiesworld.qqbot.handler.Check;
 import io.github.skiesworld.qqbot.message.Segment;
 import io.github.skiesworld.qqbot.util.Json;
 import io.github.skiesworld.qqbot.websocket.Intent;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,6 +36,7 @@ class CommandRegistryTest {
     private MockWebServer server;
     private QQBotClient client;
     private final List<String> ran = new ArrayList<>();
+    private final AtomicInteger gates = new AtomicInteger();
 
     @BeforeEach
     void setUp() throws IOException {
@@ -267,6 +270,68 @@ class CommandRegistryTest {
 
         @Command("y")
         public void noContext(QQEvent event) {
+            ran.add("never");
+        }
+    }
+
+    @Test
+    void aGateOnACommandIsAskedOnlyAfterTheTextMatched() {
+        client.commands().register(new GatedCommands());
+        dispatch(message("GROUP_AT_MESSAGE_CREATE", "别的消息", null));
+        assertEquals(0, gates.get(), "no match, so no gate to consult");
+        dispatch(message("GROUP_AT_MESSAGE_CREATE", "重启", "member"));
+        assertEquals(1, gates.get());
+        assertTrue(ran.isEmpty(), "the gate denied it");
+        dispatch(message("GROUP_AT_MESSAGE_CREATE", "重启", "owner"));
+        assertEquals(List.of("重启 by OWNER"), ran);
+    }
+
+    @Test
+    void aCommandCanNarrowItselfToOneMessageEvent() {
+        client.commands().register(new GroupOnlyCommands());
+        dispatch(message("C2C_MESSAGE_CREATE", "群内限定", null));
+        assertTrue(ran.isEmpty(), "the command is not listening here");
+        dispatch(message("GROUP_AT_MESSAGE_CREATE", "群内限定", null));
+        assertEquals(List.of("group-only"), ran);
+    }
+
+    @Test
+    void aCommandOnAnEventWithoutTextIsRejected() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> client.commands().register(new NowhereCommands()));
+        assertTrue(error.getMessage().contains("carries no message"), error.getMessage());
+    }
+
+    @SuppressWarnings("unused")
+    class GatedCommands {
+
+        @Command("重启")
+        @Check("isOwner")
+        public void restart(CommandContext ctx) {
+            ran.add(ctx.command() + " by " + ctx.role());
+        }
+
+        @Check
+        boolean isOwner(CommandContext ctx) {
+            gates.incrementAndGet();
+            return ctx.role() == Role.OWNER;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    class GroupOnlyCommands {
+
+        @Command(value = "群内限定", on = EventType.GROUP_AT_MESSAGE_CREATE)
+        public void groupOnly(CommandContext ctx) {
+            ran.add("group-only");
+        }
+    }
+
+    @SuppressWarnings("unused")
+    class NowhereCommands {
+
+        @Command(value = "永远匹配不上", on = EventType.FRIEND_ADD)
+        public void nowhere(CommandContext ctx) {
             ran.add("never");
         }
     }

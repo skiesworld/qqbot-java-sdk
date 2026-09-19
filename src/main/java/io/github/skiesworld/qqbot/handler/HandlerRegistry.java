@@ -22,7 +22,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Turns annotated methods into event listeners, so a bot can be a class instead of a lambda pile.
@@ -98,6 +101,8 @@ public final class HandlerRegistry {
 
     private final EventBus bus;
     private final QQBotClient client;
+    private final Map<Class<? extends Permission>, Supplier<? extends Permission>> permissionFactories =
+            new ConcurrentHashMap<>();
 
     public HandlerRegistry(EventBus bus) {
         this(bus, null);
@@ -163,6 +168,17 @@ public final class HandlerRegistry {
         return n;
     }
 
+    /**
+     * Teach the {@link Check#type()} side of a gate how to build a rule that needs configuration, e.g.
+     * {@code bot.handlers().permission(MySuperUsers.class, () -> new MySuperUsers(loadedIds))}. Rules with a
+     * public no-arg constructor need nothing here.
+     */
+    public HandlerRegistry permission(Class<? extends Permission> type, Supplier<? extends Permission> factory) {
+        permissionFactories.put(Objects.requireNonNull(type, "type"),
+                Objects.requireNonNull(factory, "factory"));
+        return this;
+    }
+
     /** {@code handler}'s {@link BotEvent} methods, class before superclass. */
     public static List<Route> eventRoutes(Object handler) {
         List<Route> routes = new ArrayList<>();
@@ -181,17 +197,123 @@ public final class HandlerRegistry {
             throw new IllegalArgumentException(describe(handler, method) + " listens to no event;"
                     + " set value() or name()");
         }
+        if (method.getReturnType() != void.class) {
+            throw new IllegalArgumentException(describe(handler, method) + " is a routed method but returns "
+                    + method.getReturnType().getSimpleName() + "; its result would be discarded."
+                    + " Make it void, or mark it @Check if it is a gate");
+        }
         Function<QQEvent, Object>[] binders = binders(handler, method, spec);
+        Predicate<QQEvent> gate = gateFor(handler, method, spec);
         method.setAccessible(true);
 
         List<EventBus.Subscription> subs = new ArrayList<>();
         for (EventType type : route.types) {
-            subs.add(bus.on(type, event -> invoke(handler, method, binders, event)));
+            subs.add(bus.on(type, event -> invoke(handler, method, binders, gate, event)));
         }
         for (String name : route.names) {
-            subs.add(bus.onName(name, event -> invoke(handler, method, binders, event)));
+            subs.add(bus.onName(name, event -> invoke(handler, method, binders, gate, event)));
         }
         return subs;
+    }
+
+    /**
+     * The gate {@code method} asked for, or null. Built here so a typo or an unbuildable rule fails at
+     * registration instead of leaving the action ungated at runtime.
+     */
+    private Predicate<QQEvent> gateFor(Object handler, Method method, RouteSpec spec) {
+        Check check = method.getAnnotation(Check.class);
+        if (check == null || (check.value().length == 0 && check.type().length == 0)) {
+            return null;
+        }
+        List<Predicate<QQEvent>> gates = new ArrayList<>();
+        for (String name : check.value()) {
+            gates.add(namedCheck(handler, method, name, spec));
+        }
+        for (Class<? extends Permission> type : check.type()) {
+            gates.add(typedCheck(handler, method, type));
+        }
+        return event -> {
+            for (Predicate<QQEvent> gate : gates) {
+                if (!gate.test(event)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+    }
+
+    private Predicate<QQEvent> namedCheck(Object handler, Method gated, String name, RouteSpec spec) {
+        List<Method> found = new ArrayList<>();
+        for (Method candidate : candidateMethods(handler.getClass())) {
+            if (!candidate.getName().equals(name) || candidate.equals(gated)) {
+                continue;
+            }
+            if (candidate.getAnnotation(Check.class) == null) {
+                continue;
+            }
+            if (candidate.getReturnType() != boolean.class && candidate.getReturnType() != Boolean.class) {
+                throw new IllegalArgumentException("check \"" + name + "\" on " + handler.getClass().getName()
+                        + " returns " + candidate.getReturnType().getSimpleName() + "; a check returns boolean");
+            }
+            found.add(candidate);
+        }
+        if (found.isEmpty()) {
+            throw new IllegalArgumentException(describe(handler, gated) + " requires check \"" + name
+                    + "\", which no @Check method on " + handler.getClass().getName() + " provides");
+        }
+        if (found.size() > 1) {
+            throw new IllegalArgumentException("check \"" + name + "\" is overloaded on "
+                    + handler.getClass().getName() + "; give the variants distinct names so it is clear which runs");
+        }
+        Method check = found.get(0);
+        check.setAccessible(true);
+        Function<QQEvent, Object>[] binders = binders(handler, check, spec);
+        return event -> {
+            Object[] args = new Object[binders.length];
+            for (int i = 0; i < binders.length; i++) {
+                args[i] = binders[i].apply(event);
+                if (args[i] == null) {
+                    log.debug("check {} denied {}: argument {} could not be bound", name, event.name(), i);
+                    return false;
+                }
+            }
+            try {
+                return Boolean.TRUE.equals(check.invoke(handler, args));
+            } catch (InvocationTargetException e) {
+                log.error("check {} threw for {}, denying", name, event.name(), e.getCause());
+                return false;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                log.error("check {} could not run for {}, denying", name, event.name(), e);
+                return false;
+            }
+        };
+    }
+
+    private Predicate<QQEvent> typedCheck(Object handler, Method gated, Class<? extends Permission> type) {
+        Permission permission = permissionFactories.containsKey(type)
+                ? permissionFactories.get(type).get()
+                : instantiate(type);
+        if (permission == null) {
+            throw new IllegalArgumentException(describe(handler, gated) + " requires " + type.getName()
+                    + ", which has no public no-arg constructor; register one with"
+                    + " bot.handlers().permission(" + type.getSimpleName() + ".class, () -> new ...)");
+        }
+        return event -> {
+            try {
+                return permission.allows(event, client);
+            } catch (RuntimeException e) {
+                log.error("check {} threw for {}, denying", type.getSimpleName(), event.name(), e);
+                return false;
+            }
+        };
+    }
+
+    private static Permission instantiate(Class<? extends Permission> type) {
+        try {
+            return type.getConstructor().newInstance();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -260,7 +382,8 @@ public final class HandlerRegistry {
         }
     }
 
-    private void invoke(Object handler, Method method, Function<QQEvent, Object>[] binders, QQEvent event) {
+    private void invoke(Object handler, Method method, Function<QQEvent, Object>[] binders,
+            Predicate<QQEvent> gate, QQEvent event) {
         Object[] args = new Object[binders.length];
         for (int i = 0; i < binders.length; i++) {
             args[i] = binders[i].apply(event);
@@ -269,6 +392,10 @@ public final class HandlerRegistry {
                         describe(handler, method), event.name(), i);
                 return;
             }
+        }
+        if (gate != null && !gate.test(event)) {
+            log.debug("check denied {} for {}", describe(handler, method), event.name());
+            return;
         }
         try {
             method.invoke(handler, args);

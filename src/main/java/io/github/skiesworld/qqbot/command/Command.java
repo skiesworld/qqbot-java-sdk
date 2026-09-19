@@ -4,6 +4,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import io.github.skiesworld.qqbot.event.EventType;
+
 import java.lang.annotation.Target;
 
 /**
@@ -45,6 +47,14 @@ public @interface Command {
     String[] alias() default {};
 
     Kind kind() default Kind.WORD;
+
+    /**
+     * Which message events this command listens to; empty means all of them
+     * ({@link io.github.skiesworld.qqbot.event.MessageEvents#WITH_TEXT}). Narrow it to say a command exists only
+     * in a group — {@code on = EventType.GROUP_AT_MESSAGE_CREATE} — and anything that carries no message text is
+     * rejected at registration, because such a command could never match.
+     */
+    EventType[] on() default {};
 
     /**
      * Prefixes for this command; empty means the registry's {@link CommandRegistry#usePrefixes}, which in turn

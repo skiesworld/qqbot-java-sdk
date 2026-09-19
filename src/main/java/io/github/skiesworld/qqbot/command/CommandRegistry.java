@@ -8,6 +8,7 @@ import io.github.skiesworld.qqbot.event.QQEvent;
 import io.github.skiesworld.qqbot.handler.BotEvent;
 import io.github.skiesworld.qqbot.handler.BotHandler;
 import io.github.skiesworld.qqbot.handler.HandlerRegistry;
+import io.github.skiesworld.qqbot.event.MessageEvents;
 import io.github.skiesworld.qqbot.message.ReplySequence;
 import io.github.skiesworld.qqbot.util.Strings;
 import org.slf4j.Logger;
@@ -46,15 +47,8 @@ import java.util.regex.PatternSyntaxException;
  */
 public final class CommandRegistry {
 
-    /** Every event whose payload carries message text the bot should look at. */
-    private static final EventType[] MESSAGE_EVENTS = {
-            EventType.C2C_MESSAGE_CREATE,
-            EventType.GROUP_AT_MESSAGE_CREATE,
-            EventType.GROUP_MESSAGE_CREATE,
-            EventType.AT_MESSAGE_CREATE,
-            EventType.MESSAGE_CREATE,
-            EventType.DIRECT_MESSAGE_CREATE,
-    };
+    /** What {@code @Command} listens to unless it names a narrower set in {@code on}. */
+    private static final EventType[] ALL_MESSAGE_EVENTS = MessageEvents.WITH_TEXT.toArray(new EventType[0]);
 
     private static final Logger log = LoggerFactory.getLogger(CommandRegistry.class);
 
@@ -157,14 +151,29 @@ public final class CommandRegistry {
             throw new IllegalArgumentException(name + " is a @Command but takes no CommandContext, so nothing"
                     + " would filter it; add a CommandContext parameter or use @BotEvent");
         }
-        Binding binding = new Binding(method.getAnnotation(Command.class), name);
+        Command annotation = method.getAnnotation(Command.class);
+        Binding binding = new Binding(annotation, name);
         Map<Class<?>, Function<QQEvent, Object>> extra = Map.of(CommandContext.class, binding::context);
-        List<HandlerRegistry.Route> routes = List.of(new HandlerRegistry.Route(method, MESSAGE_EVENTS,
+        List<HandlerRegistry.Route> routes = List.of(new HandlerRegistry.Route(method, events(annotation, name),
                 new String[0]));
         EventBus.Subscription subscription = client.handlers().register(handler, routes,
                 HandlerRegistry.RouteSpec.of(extra));
         bindings.add(binding);
         return subscription;
+    }
+
+    /** {@code on} defaults to every message event and may only narrow within them. */
+    private static EventType[] events(Command command, String name) {
+        if (command.on().length == 0) {
+            return ALL_MESSAGE_EVENTS;
+        }
+        for (EventType type : command.on()) {
+            if (!MessageEvents.WITH_TEXT.contains(type)) {
+                throw new IllegalArgumentException(name + " asks for " + type + ", which carries no message"
+                        + " text; a command there could never match");
+            }
+        }
+        return command.on();
     }
 
     private static boolean takesContext(Method method) {

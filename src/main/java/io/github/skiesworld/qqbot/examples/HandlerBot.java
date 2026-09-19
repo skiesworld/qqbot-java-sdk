@@ -13,6 +13,8 @@ import io.github.skiesworld.qqbot.event.model.GroupAtMessageCreate;
 import io.github.skiesworld.qqbot.handler.BotEvent;
 import io.github.skiesworld.qqbot.handler.BotHandler;
 import io.github.skiesworld.qqbot.handler.BotHandlers;
+import io.github.skiesworld.qqbot.handler.Check;
+import io.github.skiesworld.qqbot.handler.Permissions;
 import io.github.skiesworld.qqbot.message.MessageBuilder;
 import io.github.skiesworld.qqbot.message.MessageSegments;
 import io.github.skiesworld.qqbot.message.Segment;
@@ -81,6 +83,8 @@ public final class HandlerBot {
     @BotHandlers("commands")
     public static class ChatCommands implements BotHandler {
 
+        private static final java.util.Set<String> SUPER_USERS = java.util.Set.of("换成你的 openid");
+
         @Command(value = {"帮助", "help"}, description = "列出可用命令")
         public void help(CommandContext ctx) {
             ctx.reply(String.join("\n", ctx.client().commands().describe()));
@@ -89,6 +93,19 @@ public final class HandlerBot {
         @Command(value = "复读 (.+)", kind = Command.Kind.REGEX)
         public void repeat(CommandContext ctx) {
             ctx.reply("你说：" + ctx.groups().get(0));
+        }
+
+        /** 门禁本体：返回 boolean，参数按需声明。写进 @Check 的名字就是它。 */
+        @Check
+        boolean superUser(io.github.skiesworld.qqbot.event.QQEvent raw) {
+            return SUPER_USERS.contains(Permissions.senderId(raw));
+        }
+
+        /** 自己维护的白名单，比角色门更直白。 */
+        @Command(value = "全局设置", description = "仅超级用户")
+        @Check("superUser")
+        public void configure(CommandContext ctx) {
+            ctx.reply("只回给你看");
         }
 
         /** 群里只有管理员能改；单聊不报角色，所以不受这条限制。 */

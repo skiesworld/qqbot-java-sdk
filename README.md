@@ -64,6 +64,9 @@ BotConfig config = BotConfig.builder("AppID")
         // .wsUrl("wss://.../websocket")      // 指定网关地址，跳过 GET /gateway/bot
         .maxRetries(3)                        // 429/5xx/IO 失败重试次数（指数退避 + Retry-After）
         .tokenRefreshMargin(Duration.ofSeconds(60))
+        // .transport(BotConfig.Transport.WEBHOOK)          // 不连网关，改成平台回调
+        // .webhook(8080, null)                             // 回调模式 + 自己起端点（单 bot 偷懒写法）
+        // .webhookHost("127.0.0.1").botSecret("回调验签用的 Bot Secret")   // 验签密钥默认沿用 clientSecret
         .build();
 
 QQBotClient bot = QQBotClient.create(config);
@@ -72,9 +75,9 @@ QQBotClient bot = QQBotClient.create(config);
 鉴权细节：`POST {apiBase}/app/getAppAccessToken`，请求头 `Authorization: QQBot {access_token}`。
 `access_token` 有效期约 7200 秒，SDK 缓存并在到期前 60 秒自动刷新；收到 401 时会作废缓存并重新获取一次。
 
-## 三种接收事件的方式
+## 事件入口：两种传输，一条总线
 
-传输有三条（网关、进程内监听、Webhook），业务代码怎么组织是另一件事：见 [用注解组织机器人逻辑](#用注解组织机器人逻辑)。
+入口只有两种——机器人主动连上去的**网关 WebSocket**，和平台 POST 过来的 **HTTP 回调**；选哪种由 `BotConfig.transport` 决定（见第 3 小节）。两者最后都调用同一个 `EventBus.dispatch`，所以监听、注解 handler、`@Command` 只写一遍。业务代码怎么组织见 [用注解组织机器人逻辑](#用注解组织机器人逻辑)。
 
 ### 1. WebSocket 网关（默认）
 
@@ -117,18 +120,46 @@ event.targetId();  // group_openid / user_openid / channel_id / author 中可用
 
 ### 3. HTTP 回调（Webhook）
 
-把任意 HTTP 框架接到 `WebhookHandler`，它负责 Ed25519 验签、地址校验（opcode 13）与事件分发，返回值即响应体：
+选哪种入口是配置项，不是代码分支。回调地址是**按 bot 给的**，所以多个 bot 不必各占一个端口：一个监听端点，路由默认 `/qq/{appId}`。
 
 ```java
-WebhookHandler handler = new WebhookHandler(botSecret, appid, bot.events());
+BotConfig config = BotConfig.builder("AppID").clientSecret("AppSecret")
+        .transport(BotConfig.Transport.WEBHOOK)   // 路由不用写，默认就是 /qq/{appId}
+        .build();
 
-String responseBody = handler.handle(rawBody,
-        request.header("X-Signature-Timestamp"),
-        request.header("X-Signature-Ed25519"),
-        request.header("X-Bot-Appid"));
+QQBotClient a = QQBotClient.create(config);
+QQBotClient b = QQBotClient.create(otherAppConfig);
+
+try (WebhookServer endpoint = new WebhookServer("0.0.0.0", 8080).start()) {
+    a.handlers().register(new ChatHandlers());     // 与网关模式一模一样
+    b.handlers().register(new ChatHandlers());
+    endpoint.mount(a).mount(b);                    // /qq/<AppID A> 与 /qq/<AppID B> 同端口共存
+}
 ```
 
-验签规则与官方一致：以 Bot Secret 重复填充出 32 字节 seed 派生 Ed25519 密钥，签名体为 `timestamp + body`。验签失败抛 `SignatureException`，请务必当作拒绝处理。
+路由之间不串：每条路由用自己的 `WebhookHandler`（各自的 Bot Secret、各自的 `appid` 校验、各自的总线），A 的签名打到 B 的路由只会得到 401。`mount(path, handler)` 也接受自定义路径，`unmount(path)` 摘掉，`paths()` 看当前挂了哪些。
+
+只有一个 bot 时可以更省事——把端口写进配置，端点随 bot 起落：
+
+```java
+BotConfig.builder("AppID").clientSecret(secret).webhook(8080, null).build();
+try (QQBotClient bot = QQBotClient.create(config)) {
+    bot.start();                       // 按 transport 起：网关 or 自己的回调端点
+    bot.webhookServer().port();         // 实际端口（配 0 时由系统分配）
+}
+```
+
+自带 Web 框架的话两个端点都不用起：
+
+```java
+bot.webhook().handle(rawBody, timestamp, signature, appid);   // 返回值就是你要回复的响应体
+bot.webhookServer();                                           // 这个 bot 自己的端点（若存在）
+bot.connect();                                                 // 显式连网关；与回调同时开也行，共用同一总线
+```
+
+`WebhookHandler` 与 `WebhookServer` 分家的原因是三件事只有 HTTP 侧需要：验签必须在任何用户代码看到 payload 之前完成、opcode 13 的地址校验是**当次请求的响应体**而不是事件、以及回调必须同步返回 ACK `{"op":12}`。总线对这些一无所知，它只负责分发。
+
+验签规则与官方一致：以 Bot Secret 重复填充出 32 字节 seed 派生 Ed25519 密钥，签名体为 `timestamp + body`。验签失败抛 `SignatureException`，内置端点把它映射成 401 且不投递事件；自己挂路由时请按 4xx 处理。`appid` 头是签名之外的附加校验，没带该头但签名正确时仍然通过。
 
 ## 用注解组织机器人逻辑
 
@@ -148,13 +179,20 @@ public class ChatHandlers implements BotHandler {
     public void onFuture(JsonObject body) { }
 }
 
-bot.handlers().register(new ChatHandlers());     // 反射装配，编译期不需要任何处理器
-bot.events().register(new ChatHandlers());       // 同样可用，只是没有 client 可注入
+bot.handlers().register(new ChatHandlers());      // 默认就这一行
 ```
+
+注解只是**声明**，总得有人把对象接到总线上。默认路径就一行 `bot.handlers().register(...)`：反射装配，编译期不需要任何处理器，`Api`/`QQBotClient` 这类参数也能注入。另外两个入口各管一种情况：
+
+| 入口 | 什么时候用 |
+| --- | --- |
+| `bot.handlers().register(obj)` | 默认。自己写的 handler，当场接上 |
+| `bot.handlers().registerDiscovered()` | 想让**别的 jar** 里的 handler 自动被找到。需要 `META-INF/services` 清单，由下面那个可选处理器生成 |
+| `bot.events().register(obj)` | 手上只有 `EventBus`、没有 client 时（单测、自建总线）。是第一条的子集：拿不到 `Api`/`client` 参数 |
 
 参数按类型注入：`QQEvent`、`EventType`、`JsonObject`/`JsonElement`、`Api`、`QQBotClient`，其余引用类型一律当 payload 反序列化。绑定不了的（基本类型、数组、没有 client 却声明 `Api`）在 **注册时** 就抛 `IllegalArgumentException`，不会等到第一条消息才暴露；payload 缺失或对不上号时跳过这次调用并打 debug 日志，用户代码的异常也永远到不了网关线程。
 
-想让别人写的 handler 自动被找到，就让它实现 `BotHandler`（无方法的标记接口）并带上 `@BotHandlers`，由本 SDK 自带的注解处理器生成 `META-INF/services` 清单，运行时 `bot.handlers().registerDiscovered()` 用 `ServiceLoader` 装配——不在运行时扫 classpath，因此 MC 模组那种嵌套 classloader/shade 环境下同样可预期。JDK 21+ 需在消费者构建里显式开启注解处理（`-proc:full` 或配置 `--processor-path`）；不启用处理器时，上面那两行 register 完全够用。
+自动发现为什么走 `ServiceLoader` 而不是运行时扫 classpath：嵌套 classloader、remap 与 shade 环境（比如 MC 模组运行时）下扫描结果并不可靠，而清单是构建期产物。让 handler 类实现 `BotHandler`（无方法的标记接口）并带上 `@BotHandlers`，本 SDK 自带的注解处理器就会写出清单；不合规的类（非顶层、非 public、没实现标记接口、没有可用构造器、一个 `@BotEvent` 都没有）在**编译期**报错，而不是运行时静默少一个 handler。JDK 21+ 需要在你的构建里显式开启注解处理（`-proc:full`，或配 `--processor-path`）；没开也没关系，回到上表第一行即可。
 
 ### 消息段与出站构造
 
@@ -194,7 +232,29 @@ bot.commands().usePrefixes("/", "").register(new AdminCommands());
 bot.commands().describe();                                   // 给 /help 用的一行一条
 ```
 
-默认不需要前缀（群消息本就必须 @ 机器人，且平台已把该 mention 从 `content` 中剥掉），`usePrefixes("/")` 之后没带前缀的消息不再匹配。`role` 比较的是群里 `author.member_role`（member < admin < owner）；单聊与私信不报角色，那里角色门不起作用——只按角色限制群命令，别指望它在私聊里挡住谁。只匹配 `content`，纯图片/卡片消息不会触发命令，用 `CommandContext#segments()` 读它们。
+默认不需要前缀（群消息本就必须 @ 机器人，且平台已把该 mention 从 `content` 中剥掉），`usePrefixes("/")` 之后没带前缀的消息不再匹配。`role` 比较的是群里 `author.member_role`（member < admin < owner）；单聊与私信不报角色，那里角色门不起作用——只按角色限制群命令，别指望它在私聊里挡住谁。只匹配 `content`，纯图片/卡片消息不会触发命令，用 `CommandContext#segments()` 读它们。`@Command(on = EventType.GROUP_AT_MESSAGE_CREATE)` 可以把一条命令限定在某种消息事件上（只能从 `MessageEvents.WITH_TEXT` 里挑，填一个不带 `content` 的事件会在注册期报错——那种命令永远匹配不上）。
+
+### 门禁 `@Check`
+
+「谁能触发」对命令和事件方法都适用，写成一个注解、一条搞定，名字和类型可以混用；声明顺序即判定顺序，第一个拒绝就短路。
+
+```java
+@Command("清档") @Check({"groupAdmin", "superUser"})
+public void wipe(CommandContext ctx) { ... }
+
+@BotEvent(EventType.GROUP_AT_MESSAGE_CREATE)
+@Check(type = {Permissions.Group.class, Permissions.GroupAdmin.class})
+public void onGroup(GroupAtMessageCreate msg) { ... }
+
+@Check                                  // 门禁本体：返回 boolean，参数照旧按需声明
+boolean groupAdmin(GroupAtMessageCreate msg) {
+    return "admin".equalsIgnoreCase(msg.author.memberRole);
+}
+```
+
+- 字符串 = 本类或父类里的 `@Check` 方法；类型 = 可复用规则。SDK 内置 `Permissions.Group/Private/Channel/Direct/GroupAdmin/GroupOwner`（读 `author.member_role`），以及要带配置的 `Permissions.scene(...)`、`Permissions.senderIn(ids)`——后者这类没有无参构造的规则，用 `bot.handlers().permission(MyRule.class, () -> new MyRule(ids))` 注册后即可在 `type` 里点名。
+- 门禁在**参数绑定之后**才被问：命令文本没匹配上时根本不会走到它。判定为假、门禁抛异常、参数绑不上，一律按「拒绝」处理并记日志——判不出来就不能放行。
+- 名字找不到、方法不返回 `boolean`、同名重载、类型无法实例化，都在注册期抛 `IllegalArgumentException`；被路由注解标记的方法必须返回 `void`（要返回判定就标 `@Check`）。
 
 ## 接口调用
 
@@ -284,15 +344,15 @@ try {
 
 ```
 src/main/java/io/github/skiesworld/qqbot/
-├── QQBotClient          入口：api() / events() / handlers() / commands() / gateway() / media()
-├── BotConfig            appId、密钥、intents、分片、超时与重试
+├── QQBotClient          入口：start() / api() / events() / handlers() / commands() / gateway() / webhook()
+├── BotConfig            appId、密钥、intents、分片、超时与重试、传输方式（网关 or 回调）
 ├── api                  按官方模块分组的接口方法 + endpoint/Endpoints 常量
 ├── auth                 access_token 获取与缓存刷新
-├── callback             Webhook：Ed25519 验签、地址校验
+├── callback             HTTP 回调：WebhookHandler（验签/地址校验/入总线）+ WebhookServer（一个端口挂多个 bot）
 ├── command              @Command / CommandContext / CommandRegistry / Role
 ├── error                异常与网关关闭码
 ├── event                EventType / QQEvent / EventBus
-├── handler              @BotHandlers / @BotEvent / HandlerRegistry + 可选注解处理器
+├── handler              @BotHandlers / @BotEvent / @Check / Permission + HandlerRegistry + 可选注解处理器
 ├── http                 Endpoint / Params / HttpTransport（鉴权、退避、err_code）
 ├── media                富媒体分片上传
 ├── message              MessageSegments / Segment / MessageBuilder / ReplyTarget / ReplySequence
@@ -403,18 +463,18 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 | `StreamingBot` | 流式回复：首片由服务端返回 `stream_msg_id`，`index` 递增，`input_state=10` 收尾 |
 | `MediaSendBot` | 本地文件分片上传 → `file_info` → `msg_type=7` 发送 |
 | `HandlerBot` | 注解 handler（按类型注入参数）、消息段读取、`@Command` 命令与角色限制 |
-| `WebhookServer` | HTTP 回调模式：JDK 自带 HttpServer + 验签 + opcode 13 地址校验 |
+| `WebhookBot` | 回调模式：`transport(WEBHOOK)` 让 SDK 起端点，同一套 handler 代码不改；自带 Web 框架时改挂 `bot.webhook()` |
 
 `QQ_API_BASE` 可指向沙箱或本地桩，`QQ_DEMO_FILE` 指定 `MediaSendBot` 上传的文件。
 
 ## 测试
 
 ```bash
-./gradlew test           # 164 个离线测试
+./gradlew test           # 197 个离线测试
 ./gradlew build          # 编译 + 测试 + jar + sources + javadoc
 ```
 
-测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、注解 handler 的参数绑定与注册期报错、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组与角色门。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
+测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、注解 handler 的参数绑定与注册期报错、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组与角色门、回调端点的真实 socket 往返（验签、opcode 13、405/400/401 与 ACK）。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
 
 ## 已知边界
 
@@ -424,6 +484,7 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 - 官方文档的「小程序」章节（应用子频道开放数据域、`getGuildAndUserinfo` 等）描述的是运行在 QQ 客户端 JS 侧的能力，不属于服务端 OpenAPI，故不在本 SDK 范围内；与之相关的服务端消息类型（Ark / Embed / 模板 Markdown）均已覆盖。
 - 文档未给响应体的操作（如 `PUT /interactions/{interaction_id}`）返回 `void`，失败仍以 `ApiException` 抛出。
 - 收到的消息里文本与附件是平级字段，`content` 内没有占位符或偏移，因此 `MessageSegments` 只能给出「文本 + 提及 + 附件 + 卡片」的字段分组，不会假装还原气泡内的排布；子频道/私信发送体也没有 `msg_type` 与 `msg_seq` 字段，富媒体与键盘在该场景不可用（`toChannel()` 会明确拒绝）。
+- 内置回调端点只说 HTTP：平台的回调地址只接受 80/443/8080/8443，要 HTTPS 请让反向代理终结 TLS 后转发到本端点（或直接挂你自己的 Web 框架，用 `bot.webhook()`）。回调路径必须与后台登记的一致，多 bot 共用一个端口时记得每条路由分别是 `/qq/{appId}`。
 - `Role` 只能依据群场景上报的 `author.member_role`；单聊、私信与官方未给 `member_role` 的事件视为「无角色」，角色门在那里不生效。
 - 事件模型覆盖官方给出载荷结构的 22 个事件，以及文档写明「内容为 Message / MessageAudited / MessageReaction 对象」的频道事件（`AT_MESSAGE_CREATE`、`MESSAGE_CREATE`、`DIRECT_MESSAGE_CREATE`、`MESSAGE_AUDIT_*`、`MESSAGE_REACTION_*`）。`GUILD_MEMBER_*`、`FORUM_*`、`AUDIO_*`、`MESSAGE_DELETE` 等官方只在 Intents 表里列出名字、未给事件体结构，SDK 仍会投递，请用 `event.raw()` / `onName(...)` 读取，不要假设字段。
 
