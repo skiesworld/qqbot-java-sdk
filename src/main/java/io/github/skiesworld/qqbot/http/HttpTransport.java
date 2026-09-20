@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.auth.AccessTokenProvider;
 import io.github.skiesworld.qqbot.error.ApiException;
+import io.github.skiesworld.qqbot.error.AuditPendingException;
 import io.github.skiesworld.qqbot.error.QQBotException;
 import io.github.skiesworld.qqbot.util.Json;
 import io.github.skiesworld.qqbot.util.Strings;
@@ -41,8 +42,6 @@ public final class HttpTransport implements Closeable {
     public static final String TRACE_HEADER = "X-Tps-trace-ID";
 
     private static final Logger log = LoggerFactory.getLogger(HttpTransport.class);
-    private static final int AUDIT_PUSH = 304023;
-    private static final int AUDIT_REPLY = 304024;
 
     private final BotConfig config;
     private final OkHttpClient client;
@@ -272,6 +271,13 @@ public final class HttpTransport implements Closeable {
         if (parsed.isJsonObject()) {
             JsonObject obj = parsed.getAsJsonObject();
             Integer errCode = readErrCode(obj);
+            String auditId = AuditPendingException.auditIdOf(text);
+            boolean pending = auditId != null
+                    || (errCode != null && AuditPendingException.isAuditCode(errCode));
+            if (pending) {
+                throw new AuditPendingException(auditId, errCode == null ? 0 : errCode, readMessage(obj), status,
+                        obj.has("trace_id") ? obj.get("trace_id").getAsString() : traceId, text);
+            }
             if (errCode != null && errCode != 0) {
                 throw new ApiException(errCode, readMessage(obj), status,
                         obj.has("trace_id") ? obj.get("trace_id").getAsString() : traceId, text);
@@ -282,7 +288,16 @@ public final class HttpTransport implements Closeable {
         } else if (status >= 400) {
             throw new ApiException(status, text, status, traceId, text);
         }
-        return Json.GSON.fromJson(text, endpoint.responseType());
+        return decode(endpoint, text);
+    }
+
+    /** Operations that answer with nothing are declared {@code Void}; there is no body to bind. */
+    private static <T> T decode(Endpoint<T> endpoint, String text) {
+        java.lang.reflect.Type type = endpoint.responseType();
+        if (type == null || type == Void.class || type == void.class) {
+            return null;
+        }
+        return Json.GSON.fromJson(text, type);
     }
 
     static Integer readErrCode(JsonObject obj) {
@@ -314,12 +329,6 @@ public final class HttpTransport implements Closeable {
     private static String bodyText(Response response) throws IOException {
         ResponseBody body = response.body();
         return body == null ? null : body.string();
-    }
-
-    /** True when the platform accepted the message for manual audit instead of delivering it. */
-    public static boolean auditPending(ApiException e) {
-        return (e.errCode() == AUDIT_PUSH || e.errCode() == AUDIT_REPLY)
-                || (e.httpStatus() == 201 || e.httpStatus() == 202);
     }
 
     private long backoffMillis(int attempt, String retryAfter) {

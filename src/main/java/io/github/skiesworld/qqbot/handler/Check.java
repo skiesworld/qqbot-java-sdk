@@ -12,10 +12,10 @@ import java.lang.annotation.Target;
  * <p>On a handler or command method it names what has to allow the call. One line, as many as you need:
  *
  * <pre>{@code
- * @Command("清档") @Check({"groupAdmin", "superUser"})          // 本类里的判定方法，声明顺序即判定顺序
- * public void wipe(CommandContext ctx) { ... }
+ * @On(command = "清档") @Check({"groupAdmin", "superUser"})      // 本类里的判定方法，声明顺序即判定顺序
+ * public void wipe(OnContext ctx) { ... }
  *
- * @BotEvent(EventType.GROUP_AT_MESSAGE_CREATE)
+ * @On(EventType.GROUP_AT_MESSAGE_CREATE)
  * @Check(type = {Permissions.Group.class, Permissions.GroupAdmin.class})
  * public void onGroup(GroupAtMessageCreate msg) { ... }
  *

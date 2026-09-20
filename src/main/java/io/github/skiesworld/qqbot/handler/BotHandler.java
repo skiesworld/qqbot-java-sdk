@@ -10,7 +10,7 @@ package io.github.skiesworld.qqbot.handler;
  * @BotHandlers
  * public class MyHandlers implements BotHandler {
  *
- *     @BotEvent(EventType.C2C_MESSAGE_CREATE)
+ *     @On(EventType.C2C_MESSAGE_CREATE)
  *     public void onMessage(C2CMessageCreate msg, QQEvent raw) {
  *         ...
  *     }

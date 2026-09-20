@@ -28,7 +28,7 @@ public final class StreamingBot {
         QQBotClient bot = Env.client(Intent.GROUP_AND_C2C_EVENT);
 
         bot.events().on(EventType.C2C_MESSAGE_CREATE, event -> {
-            String userOpenid = event.targetId();
+            String userOpenid = event.conversationId();
             String msgId = event.rawObject().get("id").getAsString();
             replyInChunks(bot, userOpenid, msgId, List.of("正在", "思考", "……已完成"));
         });

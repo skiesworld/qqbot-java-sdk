@@ -2,6 +2,7 @@ package io.github.skiesworld.qqbot.handler.processor;
 
 import io.github.skiesworld.qqbot.handler.BotHandler;
 import io.github.skiesworld.qqbot.handler.BotHandlers;
+import io.github.skiesworld.qqbot.handler.On;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
@@ -34,7 +35,7 @@ import java.util.TreeSet;
  * loader reads in step with the sources.
  *
  * <p>A class qualifies only if the loader can actually instantiate it: top level, public, implementing the marker
- * interface, a usable no-arg constructor, and at least one {@code @BotEvent} method. Anything else is reported where
+ * interface, a usable no-arg constructor, and at least one {@link On} method. Anything else is reported where
  * it was written, at compile time, instead of going missing at runtime.
  */
 @SupportedAnnotationTypes("io.github.skiesworld.qqbot.handler.BotHandlers")
@@ -42,7 +43,7 @@ import java.util.TreeSet;
 public final class BotHandlersProcessor extends AbstractProcessor {
 
     private static final String MANIFEST = "META-INF/services/io.github.skiesworld.qqbot.handler.BotHandler";
-    private static final String BOT_EVENT = "io.github.skiesworld.qqbot.handler.BotEvent";
+    private static final String ON = "io.github.skiesworld.qqbot.handler.On";
 
     /** Accumulated across rounds; a later round sees fewer elements and must not drop the earlier ones. */
     private final Set<String> collected = new TreeSet<>();
@@ -85,8 +86,8 @@ public final class BotHandlersProcessor extends AbstractProcessor {
         if (!hasUsableConstructor(type)) {
             return error(type, name + " needs a public no-arg constructor for ServiceLoader to instantiate it");
         }
-        if (!hasBotEventMethod(type)) {
-            return error(type, name + " has no @BotEvent methods, so discovering it would register nothing");
+        if (!hasRoutedMethod(type)) {
+            return error(type, name + " has no @On methods, so discovering it would register nothing");
         }
         return true;
     }
@@ -105,9 +106,9 @@ public final class BotHandlersProcessor extends AbstractProcessor {
         return !declared;
     }
 
-    private boolean hasBotEventMethod(TypeElement type) {
+    private boolean hasRoutedMethod(TypeElement type) {
         for (Element m : type.getEnclosedElements()) {
-            if (m.getKind() == ElementKind.METHOD && hasAnnotation(m, BOT_EVENT)) {
+            if (m.getKind() == ElementKind.METHOD && hasAnnotation(m, ON)) {
                 return true;
             }
         }
@@ -117,7 +118,7 @@ public final class BotHandlersProcessor extends AbstractProcessor {
         Element parent = processingEnv.getTypeUtils().asElement(superclass);
         if (parent instanceof TypeElement parentType
                 && !parentType.getQualifiedName().contentEquals("java.lang.Object")) {
-            return hasBotEventMethod(parentType);
+            return hasRoutedMethod(parentType);
         }
         return false;
     }

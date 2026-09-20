@@ -95,7 +95,7 @@ class GatewayTest {
         assertEquals("EV3", event.id());
         assertEquals(3L, event.seq());
         assertEquals("hi", event.rawObject().get("content").getAsString());
-        assertEquals("U1", event.targetId());
+        assertEquals("U1", event.conversationId());
         assertEquals(3L, gateway.lastSeq());
     }
 

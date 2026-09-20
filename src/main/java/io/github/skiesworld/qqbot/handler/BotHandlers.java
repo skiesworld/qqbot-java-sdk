@@ -7,7 +7,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a class that collects {@link BotEvent} methods.
+ * Marks a class that collects {@link On} methods.
  *
  * <p>The annotation is what the optional {@code BotHandlersProcessor} looks for when it writes the
  * {@link BotHandler} service manifest; at runtime the registry only needs the methods, so registering an

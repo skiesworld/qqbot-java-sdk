@@ -1,352 +1,366 @@
 package io.github.skiesworld.qqbot.handler;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.annotations.SerializedName;
 import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.QQBotClient;
 import io.github.skiesworld.qqbot.event.EventBus;
+import io.github.skiesworld.qqbot.event.EventEnvelopes;
 import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
+import io.github.skiesworld.qqbot.event.QQMessageEvent;
+import io.github.skiesworld.qqbot.event.QQNoticeEvent;
 import io.github.skiesworld.qqbot.message.ReplyTarget;
 import io.github.skiesworld.qqbot.util.Json;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Gates in front of handlers: who may run, in what order, and what a broken gate declaration says about itself.
+ * The gates: who may trigger a route, named locally or shared as a rule type, and what a gate that cannot decide
+ * is worth.
  */
 class CheckTest {
 
-    private static final String OWNER = "U-OWNER";
-    private static final String STRANGER = "U-STRANGER";
+    private final EventBus bus = new EventBus();
+    private final QQBotClient bot = QQBotClient.create(BotConfig.builder("APP").clientSecret("s").build());
+    private final HandlerRegistry handlers = new HandlerRegistry(bus, bot);
 
-    private final List<String> ran = new CopyOnWriteArrayList<>();
-    private final AtomicInteger consulted = new AtomicInteger();
-
-    private static QQEvent privateMessage(String sender, String content) {
-        return event("C2C_MESSAGE_CREATE", "{\"id\":\"M1\",\"author\":{\"user_openid\":\"" + sender
-                + "\",\"username\":\"小明\"},\"content\":\"" + content + "\"}");
-    }
-
-    private static QQEvent groupMessage(String role) {
-        return event("GROUP_AT_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"ping\",\"author\":"
-                + "{\"member_openid\":\"" + OWNER + "\",\"member_role\":\"" + role + "\"}}");
-    }
-
-    private static QQEvent event(String name, String json) {
-        JsonElement d = Json.parseLenient(json);
-        return new QQEvent("ID1", 0, 1L, name, EventType.from(name), d);
+    private void groupMessage(String memberOpenid, String role, String content) {
+        bus.dispatch(EventEnvelopes.of("M1", 0, 1L, "GROUP_AT_MESSAGE_CREATE", Json.parseLenient(
+                "{\"group_openid\":\"G1\",\"content\":\"" + content + "\",\"author\":{\"member_openid\":\""
+                        + memberOpenid + "\",\"member_role\":\"" + role + "\"}}"), bot.events().outbound()));
     }
 
     @Test
-    void aNamedCheckDecidesWhetherTheHandlerRuns() {
-        EventBus bus = new EventBus();
-        bus.register(new NamedCheckHandler());
-        bus.dispatch(privateMessage(STRANGER, "ping"));
-        assertTrue(ran.isEmpty(), "the gate denied it");
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertEquals(List.of("ran"), ran);
+    void aNamedCheckDecidesCallByCall() {
+        Gated handler = new Gated();
+        handlers.register(handler);
+
+        groupMessage("OWNER", "owner", "清档");
+        groupMessage("STRANGER", "member", "清档");
+
+        assertEquals(List.of("OWNER"), handler.wiped);
     }
 
     @Test
-    void aCheckDeclaresItsOwnArgumentsIndependentlyOfTheHandler() {
-        EventBus bus = new EventBus();
-        bus.register(new PartialArgsHandler());
-        bus.dispatch(privateMessage(STRANGER, "ping"));
-        assertTrue(ran.isEmpty());
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertEquals(List.of("ran"), ran, "the check read the author; the handler never mentioned it");
+    void severalChecksRunInDeclarationOrderAndStopAtTheFirstDenial() {
+        Gated handler = new Gated();
+        handlers.register(handler);
+        handler.firstPasses = false;
+
+        groupMessage("OWNER", "owner", "清档");
+
+        assertEquals(1, handler.firstCalls);
+        assertEquals(0, handler.secondCalls, "the first said no, so the second was never asked");
     }
 
     @Test
-    void sceneAndRoleRulesAreReusableTypes() {
-        EventBus bus = new EventBus();
-        bus.register(new TypedCheckHandler());
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertTrue(ran.isEmpty(), "not a group");
-        bus.dispatch(groupMessage("member"));
-        assertTrue(ran.isEmpty(), "a plain member may not");
-        bus.dispatch(groupMessage("owner"));
-        assertEquals(List.of("ran"), ran);
+    void aCheckThatThrowsDeniesInsteadOfLeavingTheActionUngated() {
+        Throwing handler = new Throwing();
+        handlers.register(handler);
+
+        groupMessage("OWNER", "owner", "清档");
+
+        assertEquals(0, handler.dangerous);
     }
 
     @Test
-    void checksRunInDeclarationOrderAndStopAtTheFirstDenial() {
-        EventBus bus = new EventBus();
-        new HandlerRegistry(bus).permission(Counted.class, () -> new Counted(consulted))
-                .register(new OrderingHandler());
+    void aCheckThatCannotReadTheDispatchDeniesIt() {
+        GroupOnly handler = new GroupOnly();
+        handlers.register(handler);
 
-        bus.dispatch(privateMessage(STRANGER, "ping"));
-        assertEquals(0, consulted.get(), "the named check denied first, so the type was never consulted");
-        assertTrue(ran.isEmpty());
+        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, "FRIEND_ADD",
+                Json.parseLenient("{\"openid\":\"U1\"}"), bot.events().outbound()));
 
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertEquals(1, consulted.get());
-        assertEquals(List.of("ran"), ran);
+        assertEquals(0, handler.ran, "a private chat has no group role to honour");
     }
 
     @Test
-    void aGateThatCannotDecideDenies() {
-        EventBus bus = new EventBus();
-        bus.register(new ThrowingCheckHandler());
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertTrue(ran.isEmpty(), "a throwing check is a denial, not a pass");
+    void builtInRulesNameTheScenesAndRolesTheyMean() {
+        BuiltIns handler = new BuiltIns();
+        handlers.register(handler);
+
+        groupMessage("ADMIN", "admin", "管");
+        groupMessage("MEMBER", "member", "管");
+        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, "C2C_MESSAGE_CREATE",
+                Json.parseLenient("{\"content\":\"管\",\"user_openid\":\"U1\","
+                        + "\"author\":{\"user_openid\":\"U1\"}}"), bot.events().outbound()));
+
+        assertEquals(List.of("ADMIN"), handler.adminRuns);
+        assertEquals(List.of("G1", "G1", "U1"), handler.anyC2cOrGroup);
     }
 
     @Test
-    void configuredRulesComeFromTheFactory() {
-        try (QQBotClient bot = QQBotClient.create(BotConfig.builder("APP").accessToken("TOKEN").build())) {
-            bot.handlers().permission(AllowList.class, () -> new AllowList(Set.of(OWNER)))
-                    .register(new ConfiguredCheckHandler());
-            bot.events().dispatch(privateMessage(STRANGER, "ping"));
-            assertTrue(ran.isEmpty());
-            bot.events().dispatch(privateMessage(OWNER, "ping"));
-            assertEquals(List.of("ran"), ran);
-        }
+    void toMeAnswersTheAddressedEventsAndAnAtBotMentionInGroupWideMode() {
+        Addressed handler = new Addressed();
+        handlers.register(handler);
+
+        groupMessage("M1", "member", "在吗");
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"闲聊\","
+                + "\"author\":{\"member_openid\":\"M1\"}}");
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"@别人 你好\","
+                + "\"author\":{\"member_openid\":\"M1\"},\"mentions\":[{\"user_openid\":\"H1\",\"bot\":false}]}");
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"@机器人 你好\","
+                + "\"author\":{\"member_openid\":\"M1\"},\"mentions\":[{\"user_openid\":\"B1\",\"bot\":true}]}");
+
+        assertEquals(List.of("在吗", "全量:@机器人 你好"), handler.heard);
+    }
+
+    private void dispatch(String name, String payload) {
+        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, name, Json.parseLenient(payload), bot.events().outbound()));
     }
 
     @Test
-    void aConfiguredRuleWithoutItsFactorySaysSoAtRegistration() {
-        EventBus bus = new EventBus();
+    void aConfiguredRuleIsNamedByTypeOnceItsFactoryIsRegistered() {
+        handlers.permission(SuperUsers.class, () -> new SuperUsers(List.of("BOSS")));
+        Configured handler = new Configured();
+        handlers.register(handler);
+
+        groupMessage("BOSS", "member", "特权");
+        groupMessage("NOBODY", "owner", "特权");
+
+        assertEquals(List.of("BOSS"), handler.granted);
+    }
+
+    @Test
+    void anUnknownCheckNameIsAStartupFailure() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new ConfiguredCheckHandler()));
-        assertTrue(error.getMessage().contains("no public no-arg constructor"), error.getMessage());
-        assertTrue(error.getMessage().contains("permission("), error.getMessage());
+                () -> handlers.register(new UnknownName()));
+        assertTrue(error.getMessage().contains("no @Check method"), error.getMessage());
     }
 
     @Test
-    void aGateGetsNoClientWhenRegisteredOnABareBus() {
-        EventBus bus = new EventBus();
-        bus.register(new ReportsClientHandler());
-        bus.dispatch(privateMessage(OWNER, "ping"));
-        assertEquals(List.of("ran"), ran, "ReportsClient only allows a null client, so the bus route reached it");
+    void aCheckMustReturnBoolean() {
+        assertThrows(IllegalArgumentException.class, () -> handlers.register(new CheckNotBoolean()));
     }
 
     @Test
-    void brokenGateDeclarationsFailAtRegistration() {
-        EventBus bus = new EventBus();
-
-        IllegalArgumentException missing = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new MissingCheckHandler()));
-        assertTrue(missing.getMessage().contains("no @Check method"), missing.getMessage());
-
-        IllegalArgumentException overloaded = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new OverloadedCheckHandler()));
-        assertTrue(overloaded.getMessage().contains("is overloaded"), overloaded.getMessage());
-
-        IllegalArgumentException notBoolean = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new CheckThatIsNotABooleanHandler()));
-        assertTrue(notBoolean.getMessage().contains("a check returns boolean"), notBoolean.getMessage());
-
-        IllegalArgumentException routedNonVoid = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new RoutedMethodReturnsAValueHandler()));
-        assertTrue(routedNonVoid.getMessage().contains("Make it void"), routedNonVoid.getMessage());
+    void anOverloadedCheckNameWouldLeaveItAmbiguous() {
+        assertThrows(IllegalArgumentException.class, () -> handlers.register(new OverloadedCheck()));
     }
 
-    /** Reads what the handler does not ask for, to show the two signatures are independent. */
-    static class SenderOnly {
-
-        @SerializedName("author")
-        Author author;
+    @Test
+    void aRuleTypeWithNoWayToBuildItIsReportedAtRegistration() {
+        assertThrows(IllegalArgumentException.class, () -> handlers.register(new UnbuildableRule()));
     }
 
-    static class Author {
+    @Test
+    void senderInComparesThePersonTheEnvelopeNames() {
+        Permission rule = Permissions.senderIn(List.of("U1"));
+        QQEvent message = EventEnvelopes.of("E1", 0, 1L, "C2C_MESSAGE_CREATE",
+                Json.parseLenient("{\"content\":\"x\",\"author\":{\"user_openid\":\"U1\"}}"), null);
+        QQEvent notice = EventEnvelopes.of("E1", 0, 1L, "GROUP_ADD_ROBOT",
+                Json.parseLenient("{\"group_openid\":\"G1\",\"op_member_openid\":\"U1\"}"), null);
+        QQEvent nobody = EventEnvelopes.of("E1", 0, 1L, "CHANNEL_CREATE",
+                Json.parseLenient("{\"guild_id\":\"456\",\"owner_id\":\"U1\"}"), null);
 
-        @SerializedName("user_openid")
-        String userOpenid;
+        assertTrue(rule.allows(message, bot));
+        assertTrue(rule.allows(notice, bot), "a notice names its actor by role, not by key guesswork");
+        assertFalse(rule.allows(nobody, bot), "owner_id is a guild id and is not offered as a person");
     }
 
-    /** Needs configuration, so it has no no-arg constructor and must come from a factory. */
-    public static final class AllowList implements Permission {
+    @Test
+    void theSceneRulesReadTheConversationTheEventCameFrom() {
+        QQEvent group = EventEnvelopes.of("E1", 0, 1L, "GROUP_MESSAGE_CREATE",
+                Json.parseLenient("{\"group_openid\":\"G1\"}"), null);
 
-        private final Set<String> allowed;
-
-        public AllowList(Set<String> allowed) {
-            this.allowed = allowed;
-        }
-
-        @Override
-        public boolean allows(QQEvent event, QQBotClient bot) {
-            String sender = Permissions.senderId(event);
-            return sender != null && allowed.contains(sender);
-        }
+        assertEquals(ReplyTarget.GROUP, group.scene());
+        assertTrue(new Permissions.Group().allows(group, bot));
+        assertTrue(Permissions.scene(ReplyTarget.GROUP).allows(group, bot));
     }
 
-    /** Counts how often it was consulted, to pin the evaluation order. */
-    public static final class Counted implements Permission {
+    static class Gated {
 
-        private final AtomicInteger consulted;
+        final List<String> wiped = new java.util.ArrayList<>();
+        boolean firstPasses = true;
+        int firstCalls;
+        int secondCalls;
 
-        Counted(AtomicInteger consulted) {
-            this.consulted = consulted;
-        }
-
-        @Override
-        public boolean allows(QQEvent event, QQBotClient bot) {
-            consulted.incrementAndGet();
-            return true;
-        }
-    }
-
-    /** Only passes when the registration had no client to hand out. */
-    public static final class ReportsClient implements Permission {
-
-        @Override
-        public boolean allows(QQEvent event, QQBotClient bot) {
-            return bot == null && Permissions.scene(ReplyTarget.C2C).allows(event, bot);
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class NamedCheckHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check("ownerOnly")
-        public void ping(QQEvent raw) {
-            ran.add("ran");
+        @On(command = "清档")
+        @Check({"first", "second"})
+        public void wipe(OnContext ctx) {
+            wiped.add(ctx.message().senderId());
         }
 
         @Check
-        boolean ownerOnly(SenderOnly msg) {
-            return msg.author != null && OWNER.equals(msg.author.userOpenid);
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class PartialArgsHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check("ownerOnly")
-        public void ping() {
-            ran.add("ran");
+        boolean first(QQMessageEvent msg) {
+            firstCalls++;
+            return firstPasses;
         }
 
         @Check
-        boolean ownerOnly(SenderOnly msg) {
-            return msg.author != null && OWNER.equals(msg.author.userOpenid);
+        boolean second(QQMessageEvent msg) {
+            secondCalls++;
+            return "owner".equals(msg.author().memberRole);
         }
     }
 
-    @SuppressWarnings("unused")
-    class TypedCheckHandler {
+    static class Throwing {
 
-        @BotEvent(EventType.GROUP_AT_MESSAGE_CREATE)
-        @Check(type = {Permissions.Group.class, Permissions.GroupOwner.class})
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-    }
+        int dangerous;
 
-    @SuppressWarnings("unused")
-    class OrderingHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check(value = "ownerOnly", type = Counted.class)
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-
-        @Check
-        boolean ownerOnly(QQEvent raw) {
-            return OWNER.equals(Permissions.senderId(raw));
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class ThrowingCheckHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
+        @On(command = "清档")
         @Check("boom")
-        public void ping(QQEvent raw) {
-            ran.add("ran");
+        public void wipe(OnContext ctx) {
+            dangerous++;
         }
 
         @Check
-        boolean boom(QQEvent raw) {
-            throw new IllegalStateException("gate failed on purpose");
+        boolean boom(QQEvent event) {
+            throw new IllegalStateException("the rule could not load its list");
         }
     }
 
-    @SuppressWarnings("unused")
-    class ConfiguredCheckHandler {
+    static class GroupOnly {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check(type = AllowList.class)
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-    }
+        int ran;
 
-    @SuppressWarnings("unused")
-    class ReportsClientHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check(type = ReportsClient.class)
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class MissingCheckHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check("nobodyWithThisName")
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class OverloadedCheckHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check("ownerOnly")
-        public void ping(QQEvent raw) {
-            ran.add("ran");
+        @On(EventType.FRIEND_ADD)
+        @Check("admin")
+        public void onFriend(QQEvent event) {
+            ran++;
         }
 
         @Check
-        boolean ownerOnly(QQEvent raw) {
+        boolean admin(QQMessageEvent msg) {
+            return "admin".equals(msg.author().memberRole);
+        }
+    }
+
+    static class BuiltIns {
+
+        final List<String> adminRuns = new java.util.ArrayList<>();
+        final List<String> anyC2cOrGroup = new java.util.ArrayList<>();
+
+        @On(command = "管", requires = {Permissions.Group.class, Permissions.GroupAdmin.class})
+        public void adminOnly(OnContext ctx) {
+            adminRuns.add(ctx.message().senderId());
+        }
+
+        @On(EventType.GROUP_AT_MESSAGE_CREATE)
+        public void group(QQMessageEvent msg) {
+            anyC2cOrGroup.add(msg.conversationId());
+        }
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void c2c(QQMessageEvent msg) {
+            anyC2cOrGroup.add(msg.conversationId());
+        }
+    }
+
+    static class Addressed {
+
+        final List<String> heard = new java.util.ArrayList<>();
+
+        @On(EventType.GROUP_AT_MESSAGE_CREATE)
+        @Check(type = Permissions.ToMe.class)
+        public void on(QQMessageEvent msg) {
+            heard.add(msg.content());
+        }
+
+        @On(EventType.GROUP_MESSAGE_CREATE)
+        @Check(type = Permissions.ToMe.class)
+        public void onGroupWide(QQMessageEvent msg) {
+            heard.add("全量:" + msg.content());
+        }
+    }
+
+    static class Configured {
+
+        final List<String> granted = new java.util.ArrayList<>();
+
+        @On(command = "特权", requires = SuperUsers.class)
+        public void on(OnContext ctx) {
+            granted.add(ctx.message().senderId());
+        }
+    }
+
+    /** A rule that asks for what it reads, instead of taking the whole dispatch and digging in it. */
+    public static class SuperUsers implements Permission {
+
+        private final List<String> ids;
+
+        public SuperUsers() {
+            this(List.of());
+        }
+
+        SuperUsers(List<String> ids) {
+            this.ids = List.copyOf(ids);
+        }
+
+        @Override
+        public boolean allows(QQEvent event, QQBotClient bot) {
+            throw new AssertionError("the bound check below answers instead");
+        }
+
+        public boolean check(QQMessageEvent msg) {
+            return ids.contains(msg.senderId());
+        }
+    }
+
+    static class UnknownName {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        @Check("nobodyProvidesThis")
+        public void on(QQEvent event) {
+        }
+    }
+
+    static class CheckNotBoolean {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        @Check("notBoolean")
+        public void on(QQEvent event) {
+        }
+
+        @Check
+        String notBoolean(QQEvent event) {
+            return "no";
+        }
+    }
+
+    static class OverloadedCheck {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        @Check("twice")
+        public void on(QQEvent event) {
+        }
+
+        @Check
+        boolean twice(QQEvent event) {
             return true;
         }
 
         @Check
-        boolean ownerOnly(JsonObject body) {
+        boolean twice(QQMessageEvent msg) {
             return true;
         }
     }
 
-    @SuppressWarnings("unused")
-    class CheckThatIsNotABooleanHandler {
+    static class UnbuildableRule {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        @Check("ownerOnly")
-        public void ping(QQEvent raw) {
-            ran.add("ran");
-        }
-
-        @Check
-        void ownerOnly(QQEvent raw) {
+        @On(EventType.C2C_MESSAGE_CREATE)
+        @Check(type = NeedsConfig.class)
+        public void on(QQEvent event) {
         }
     }
 
-    @SuppressWarnings("unused")
-    class RoutedMethodReturnsAValueHandler {
+    public static class NeedsConfig implements Permission {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public boolean ping(QQEvent raw) {
-            ran.add("ran");
-            return true;
+        private final String only;
+
+        public NeedsConfig(String only) {
+            this.only = only;
+        }
+
+        @Override
+        public boolean allows(QQEvent event, QQBotClient bot) {
+            return event.name().equals(only);
         }
     }
 }

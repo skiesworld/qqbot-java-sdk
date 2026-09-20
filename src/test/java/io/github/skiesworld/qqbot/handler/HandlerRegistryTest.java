@@ -4,282 +4,394 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.QQBotClient;
-import io.github.skiesworld.qqbot.api.Api;
 import io.github.skiesworld.qqbot.event.EventBus;
+import io.github.skiesworld.qqbot.event.EventEnvelopes;
 import io.github.skiesworld.qqbot.event.EventType;
+import io.github.skiesworld.qqbot.event.GroupJoinRequestEvent;
 import io.github.skiesworld.qqbot.event.QQEvent;
-import io.github.skiesworld.qqbot.event.model.C2CMessageCreate;
-import io.github.skiesworld.qqbot.model.Message;
-import io.github.skiesworld.qqbot.util.Json;
+import io.github.skiesworld.qqbot.event.QQMessageEvent;
+import io.github.skiesworld.qqbot.event.QQNoticeEvent;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Annotated handlers: what binds, what fails at registration, and what a bad dispatch does to the bus. */
+/**
+ * What a method's {@link On} annotation and its parameter types together decide: which dispatches reach it, what
+ * the arguments are, and which mistakes stop the bot from starting.
+ */
 class HandlerRegistryTest {
 
-    private static final List<String> DISCOVERED = new CopyOnWriteArrayList<>();
+    private final EventBus bus = new EventBus();
+    private final QQBotClient bot = QQBotClient.create(BotConfig.builder("APP").clientSecret("s").build());
+    private final HandlerRegistry handlers = new HandlerRegistry(bus, bot);
 
-    private final List<String> hits = new CopyOnWriteArrayList<>();
-
-    private static QQEvent event(String name, String json) {
-        // deliberately not coerced to an object: a payload that is not one must skip, not blow up
-        JsonElement d = json == null ? null : Json.parseLenient(json);
-        return new QQEvent("ID1", 0, 1L, name, EventType.from(name), d);
+    private void dispatch(String name, String payload) {
+        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, name,
+                io.github.skiesworld.qqbot.util.Json.parseLenient(payload), bot.events().outbound()));
     }
 
-    private static QQBotClient client() {
-        return QQBotClient.create(BotConfig.builder("APP").accessToken("TOKEN").build());
+    private static final String MESSAGE = "{\"id\":\"M1\",\"content\":\"hi\",\"user_openid\":\"U1\","
+            + "\"author\":{\"user_openid\":\"U1\"},\"message_type\":0}";
+
+    @Test
+    void anEnvelopeParameterIsTheWholeClassOfEvents() {
+        Messages handler = new Messages();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"yo\","
+                + "\"author\":{\"member_openid\":\"M1\"}}");
+        dispatch("FRIEND_ADD", "{\"openid\":\"U1\"}");
+
+        assertEquals(2, handler.messages.size());
+        assertEquals("hi", handler.messages.get(0));
+        assertEquals(1, handler.notices.size(), "the notice route only hears the notice events");
     }
 
     @Test
-    void bindsPayloadAndEnvelopeTogether() {
-        EventBus bus = new EventBus();
-        bus.register(new PayloadHandlers());
-        bus.dispatch(event("C2C_MESSAGE_CREATE",
-                "{\"id\":\"M1\",\"content\":\"你好\",\"author\":{\"user_openid\":\"U1\"}}"));
-        assertEquals(List.of("envelope:C2C_MESSAGE_CREATE/ID1", "payload:你好"), hits.stream().sorted().toList(),
-                "both methods of the handler ran, whichever order the class declares them in");
+    void aConcreteEnvelopeNarrowsToOneEventAndAPayloadTypeFillsTheRest() {
+        Requests handler = new Requests();
+        handlers.register(handler);
+
+        dispatch("GROUP_JOIN_REQUEST", "{\"group_openid\":\"G1\",\"join_request_id\":\"R1\","
+                + "\"member_openid\":\"M1\",\"username\":\"张三\"}");
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(List.of("R1/M1"), handler.answers);
+        assertEquals(1, handler.others, "the other route on the same bus still heard its own event");
     }
 
     @Test
-    void oneMethodCanCoverSeveralTypesAndRawNames() {
-        EventBus bus = new EventBus();
-        bus.register(new MultiRouteHandlers());
-        bus.dispatch(event("FRIEND_ADD", "{\"openid\":\"U\"}"));
-        bus.dispatch(event("FRIEND_DEL", "{\"openid\":\"U\"}"));
-        bus.dispatch(event("AUDIO_START", "{\"channel_id\":\"C\"}"));
-        bus.dispatch(event("FRIEND_ADD_UNRELATED", "{}"));
-        assertEquals(List.of("friend", "friend", "byName:AUDIO_START"), hits);
+    void aBareQqEventParameterHearsEverything() {
+        Everything handler = new Everything();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+        dispatch("FRIEND_DEL", "{\"openid\":\"U1\"}");
+        dispatch("GROUP_SOMETHING_NEW", "{}");
+
+        assertEquals(3, handler.names.size());
+        assertTrue(handler.names.contains("GROUP_SOMETHING_NEW"), "unmodelled names still arrive");
     }
 
     @Test
-    void bindsTheClientAndApiOnlyWhenARegistryHasOne() {
-        try (QQBotClient bot = client()) {
-            bot.handlers().register(new ClientHandlers());
-            bot.events().dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"x\"}"));
-            assertEquals(List.of("api+client"), hits);
+    void explicitEventsNarrowWhatTheParameterWouldHaveCovered() {
+        OnlyGroup handler = new OnlyGroup();
+        handlers.register(handler);
 
-            IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                    () -> bot.events().register(new ClientHandlers()));
-            assertTrue(error.getMessage().contains("bot.handlers()"), error.getMessage());
-        }
+        dispatch("GROUP_AT_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"x\","
+                + "\"author\":{\"member_openid\":\"M1\"}}");
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(List.of("G1"), handler.seen);
     }
 
     @Test
-    void aThrowingHandlerStaysOutOfTheBusesWay() {
-        EventBus bus = new EventBus();
-        bus.register(new ThrowingHandlers());
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"x\"}"));
-        assertEquals(List.of("after-the-throw"), hits);
+    void bindingFollowsTheDeclaredTypeOfEveryParameter() {
+        Mixed handler = new Mixed();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(EventType.C2C_MESSAGE_CREATE, handler.type);
+        assertNotNull(handler.raw);
+        assertEquals("hi", handler.body.get("content").getAsString());
+        assertEquals("hi", handler.element.getAsJsonObject().get("content").getAsString());
+        assertNotNull(handler.api);
+        assertNotNull(handler.client);
+        assertEquals("U1", handler.sender);
     }
 
     @Test
-    void dispatchesWithoutABindablePayloadSkipTheHandlerInsteadOfFailing() {
-        EventBus bus = new EventBus();
-        bus.register(new PayloadHandlers());
-        bus.dispatch(event("C2C_MESSAGE_CREATE", null));
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "\"a string, not an object\""));
-        assertEquals(2, hits.size(), "the envelope-bound method still runs, the payload-bound one is skipped");
-        assertTrue(hits.contains("envelope:C2C_MESSAGE_CREATE/ID1"), hits.toString());
+    void apayloadThatWillNotBindSkipsTheCallWithoutTouchingTheChain() {
+        WrongPayload handler = new WrongPayload();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", "{\"content\":\"hi\",\"author\":{\"user_openid\":\"U1\"}}");
+
+        assertEquals(0, handler.calls, "that event carries a C2CMessageCreate, not a GroupMessageCreate");
     }
 
     @Test
-    void closingTheRegistrationStopsEveryRouteOfTheHandler() {
-        EventBus bus = new EventBus();
-        EventBus.Subscription subscription = bus.register(new MultiRouteHandlers());
+    void aCommandRouteStillTakesTheEnvelopeItAskedFor() {
+        WithBoth handler = new WithBoth();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(1, handler.contextRuns);
+        assertEquals(1, handler.messageRuns);
+        assertEquals("hi", handler.text);
+    }
+
+    @Test
+    void registeringAClassWithNothingAnnotatedIsAnError() {
+        assertThrows(IllegalArgumentException.class, () -> handlers.register(new Empty()));
+    }
+
+    @Test
+    void aMethodThatListensToNothingAndAnswersNothingCannotRun() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new NoRoute()));
+        assertTrue(error.getMessage().contains("listens to no event"), error.getMessage());
+    }
+
+    @Test
+    void aParameterNoRuleFillsIsRejectedAtRegistration() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new PrimitiveParam()));
+        assertTrue(error.getMessage().contains("cannot be bound"), error.getMessage());
+    }
+
+    @Test
+    void anEnvelopeThatTheListenedEventsNeverBuildIsRejected() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new MismatchedEnvelope()));
+        assertTrue(error.getMessage().contains("could never run"), error.getMessage());
+    }
+
+    @Test
+    void aRawEventNameCannotCarryAnEnvelopeNobodyBuildsForIt() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new NameWithEnvelope()));
+        assertTrue(error.getMessage().contains("unmodelled events"), error.getMessage());
+    }
+
+    @Test
+    void aRouteThatReturnsSomethingWouldDiscardIt() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new ReturnsValue()));
+        assertTrue(error.getMessage().contains("@Check"), error.getMessage());
+    }
+
+    @Test
+    void anOnContextWithoutACommandHasNothingToReport() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> handlers.register(new ContextWithoutCommand()));
+        assertTrue(error.getMessage().contains("declares no command"), error.getMessage());
+    }
+
+    @Test
+    void closingTheRegistrationTakesTheRoutesAway() {
+        Messages handler = new Messages();
+        EventBus.Subscription subscription = handlers.register(handler);
+
         subscription.close();
-        bus.dispatch(event("FRIEND_ADD", "{}"));
-        bus.dispatch(event("AUDIO_START", "{}"));
-        assertTrue(hits.isEmpty(), hits.toString());
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+        assertEquals(0, handler.messages.size());
     }
 
     @Test
-    void inheritedRoutesRunOnceAndAgainstTheSubclassInstance() {
-        EventBus bus = new EventBus();
-        bus.register(new SubHandlers());
-        bus.dispatch(event("GUILD_CREATE", "{\"id\":\"G1\"}"));
-        assertEquals(List.of("base:GUILD_CREATE"), hits);
+    void anApiParameterNeedsTheClientAndSaysSo() {
+        HandlerRegistry bare = new HandlerRegistry(new EventBus());
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> bare.register(new Mixed()));
+        assertTrue(error.getMessage().contains("needs a client"), error.getMessage());
     }
 
     @Test
-    void rejectsMethodsThatCouldNeverBeCalled() {
-        EventBus bus = new EventBus();
-        IllegalArgumentException noEvent = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new NoEventHandlers()));
-        assertTrue(noEvent.getMessage().contains("listens to no event"), noEvent.getMessage());
+    void aPluginCanOpenTheBinderToItsOwnParameterType() {
+        handlers.bind(Roster.class, event -> new Roster(event.conversationId()));
+        UsesRoster handler = new UsesRoster();
+        handlers.register(handler);
 
-        IllegalArgumentException primitive = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new PrimitiveParamHandlers()));
-        assertTrue(primitive.getMessage().contains("cannot be bound"), primitive.getMessage());
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
 
-        IllegalArgumentException nothing = assertThrows(IllegalArgumentException.class,
-                () -> bus.register(new Object()));
-        assertTrue(nothing.getMessage().contains("nothing to register"), nothing.getMessage());
+        assertEquals("U1", handler.roster.conversation);
     }
 
     @Test
-    void bindsAMessagePayloadOfAnEventModelledElsewhere() {
-        EventBus bus = new EventBus();
-        bus.register(new GuildMessageHandlers());
-        bus.dispatch(event("AT_MESSAGE_CREATE", "{\"id\":\"M2\",\"content\":\"<@!1> hi\",\"channel_id\":\"C\"}"));
-        assertEquals(List.of("message:M2"), hits);
+    void aResolverReturningNullSkipsTheRoute() {
+        handlers.bind(Roster.class, event -> null);
+        UsesRoster handler = new UsesRoster();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(null, handler.roster, "null from the resolver means not this dispatch");
     }
 
     @Test
-    void routesPreComputedByACallerUseTheSameBindings() {
-        EventBus bus = new EventBus();
-        PayloadHandlers handler = new PayloadHandlers();
-        List<HandlerRegistry.Route> routes = HandlerRegistry.eventRoutes(handler);
-        assertEquals(2, routes.size());
-        HandlerRegistry.Route payload = routes.stream()
-                .filter(r -> r.method().getName().equals("payload"))
-                .findFirst().orElseThrow();
-        new HandlerRegistry(bus).register(handler, List.of(payload), HandlerRegistry.RouteSpec.plain());
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"one route\"}"));
-        assertEquals(List.of("payload:one route"), hits);
-    }
-
-    @Test
-    void refusesRoutesFromAnotherClass() {
-        EventBus bus = new EventBus();
-        HandlerRegistry.Route foreign = HandlerRegistry.eventRoutes(new PayloadHandlers()).get(0);
+    void theTypesTheEngineFillsCannotBeReplaced() {
         assertThrows(IllegalArgumentException.class,
-                () -> new HandlerRegistry(bus).register(new GuildMessageHandlers(), List.of(foreign),
-                        HandlerRegistry.RouteSpec.plain()));
+                () -> handlers.bind(QQMessageEvent.class, event -> null));
+        assertThrows(IllegalArgumentException.class,
+                () -> handlers.bind(OnContext.class, event -> null));
     }
 
-    @Test
-    void findsNothingWithoutAManifest(@TempDir Path dir) throws IOException {
-        EventBus bus = new EventBus();
-        assertEquals(0, new HandlerRegistry(bus).registerDiscovered(
-                new URLClassLoader(new URL[]{dir.toUri().toURL()}, getClass().getClassLoader())));
-    }
+    static class Roster {
 
-    @Test
-    void registersEveryHandlerNamedInTheServiceManifest(@TempDir Path dir) throws IOException {
-        Path services = Files.createDirectories(dir.resolve("META-INF/services"));
-        Files.writeString(services.resolve(BotHandler.class.getName()), Discovered.class.getName() + "\n");
-        EventBus bus = new EventBus();
-        try (URLClassLoader loader = new URLClassLoader(new URL[]{dir.toUri().toURL()},
-                getClass().getClassLoader())) {
-            assertEquals(1, new HandlerRegistry(bus).registerDiscovered(loader));
-            bus.dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"found\"}"));
-        }
-        assertEquals(List.of("found"), DISCOVERED);
-    }
+        private final String conversation;
 
-    @SuppressWarnings("unused")
-    public static class Discovered implements BotHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void onC2c(C2CMessageCreate msg) {
-            DISCOVERED.add(msg.content);
+        Roster(String conversation) {
+            this.conversation = conversation;
         }
     }
 
-    @SuppressWarnings("unused")
-    class PayloadHandlers {
+    static class UsesRoster {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void payload(C2CMessageCreate msg) {
-            hits.add("payload:" + msg.content);
-        }
+        Roster roster;
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void envelope(QQEvent event) {
-            hits.add("envelope:" + event.name() + "/" + event.id());
-            assertInstanceOf(JsonObject.class, event.raw());
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void on(Roster roster) {
+            this.roster = roster;
         }
     }
 
-    @SuppressWarnings("unused")
-    class MultiRouteHandlers {
+    class Messages {
 
-        @BotEvent({EventType.FRIEND_ADD, EventType.FRIEND_DEL})
-        public void friends(QQEvent event) {
-            hits.add("friend");
+        final List<String> messages = new java.util.ArrayList<>();
+        final List<String> notices = new java.util.ArrayList<>();
+
+        @On
+        public void onMessage(QQMessageEvent msg) {
+            messages.add(msg.content());
         }
 
-        @BotEvent(name = "AUDIO_START")
-        public void rawName(JsonObject d, QQEvent event) {
-            hits.add("byName:" + event.name());
-            assertTrue(d.has("channel_id"), d.toString());
-        }
-    }
-
-    @SuppressWarnings("unused")
-    class ClientHandlers {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void both(Api api, QQBotClient bot, C2CMessageCreate msg) {
-            assertSame(api, bot.api());
-            hits.add("api+client");
+        @On
+        public void onNotice(QQNoticeEvent notice) {
+            notices.add(notice.name());
         }
     }
 
-    @SuppressWarnings("unused")
-    class ThrowingHandlers {
+    class Requests {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void boom(C2CMessageCreate msg) {
-            throw new IllegalStateException("handler failed on purpose");
+        final List<String> answers = new java.util.ArrayList<>();
+        int others;
+
+        @On
+        public void onJoin(GroupJoinRequestEvent event, io.github.skiesworld.qqbot.event.model.GroupJoinRequest p) {
+            answers.add(p.joinRequestId + '/' + event.applicant());
         }
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void survivor(QQEvent event) {
-            hits.add("after-the-throw");
-        }
-    }
-
-    class BaseHandlers {
-
-        @BotEvent(EventType.GUILD_CREATE)
-        public void guild(QQEvent event) {
-            hits.add("base:" + event.name());
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void onMessage(QQEvent event) {
+            others++;
         }
     }
 
-    class SubHandlers extends BaseHandlers {
-    }
+    class Everything {
 
-    @SuppressWarnings("unused")
-    class NoEventHandlers {
+        final List<String> names = new java.util.ArrayList<>();
 
-        @BotEvent
-        public void nowhere(QQEvent event) {
-            hits.add("never");
+        @On
+        public void onAny(QQEvent event) {
+            names.add(event.name());
         }
     }
 
-    @SuppressWarnings("unused")
-    class PrimitiveParamHandlers {
+    class OnlyGroup {
 
-        @BotEvent(EventType.GUILD_CREATE)
-        public void needsInt(int seq) {
-            hits.add("never");
+        final List<String> seen = new java.util.ArrayList<>();
+
+        @On(EventType.GROUP_AT_MESSAGE_CREATE)
+        public void onGroup(QQMessageEvent msg) {
+            seen.add(msg.conversationId());
         }
     }
 
-    @SuppressWarnings("unused")
-    class GuildMessageHandlers {
+    class Mixed {
 
-        @BotEvent(EventType.AT_MESSAGE_CREATE)
-        public void message(Message message) {
-            hits.add("message:" + message.id);
+        EventType type;
+        QQEvent raw;
+        JsonObject body;
+        JsonElement element;
+        io.github.skiesworld.qqbot.api.Api api;
+        QQBotClient client;
+        String sender;
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void onAll(EventType type, QQEvent raw, JsonObject body, JsonElement element,
+                io.github.skiesworld.qqbot.api.Api api, QQBotClient client, QQMessageEvent msg) {
+            this.type = type;
+            this.raw = raw;
+            this.body = body;
+            this.element = element;
+            this.api = api;
+            this.client = client;
+            this.sender = msg.senderId();
+        }
+    }
+
+    class WrongPayload {
+
+        int calls;
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void on(io.github.skiesworld.qqbot.event.model.GroupMessageCreate msg) {
+            calls++;
+        }
+    }
+
+    class WithBoth {
+
+        int contextRuns;
+        int messageRuns;
+        String text;
+
+        @On(command = "hi")
+        public void onCommand(OnContext ctx) {
+            contextRuns++;
+            text = ctx.text();
+        }
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void onMessage(QQMessageEvent msg) {
+            messageRuns++;
+        }
+    }
+
+    class Empty {
+
+        public void plain(QQEvent event) {
+        }
+    }
+
+    class NoRoute {
+
+        @On
+        public void nothing(String ignored) {
+        }
+    }
+
+    class PrimitiveParam {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void on(int count) {
+        }
+    }
+
+    class MismatchedEnvelope {
+
+        @On(EventType.FRIEND_ADD)
+        public void on(QQMessageEvent msg) {
+        }
+    }
+
+    class NameWithEnvelope {
+
+        @On(name = "GROUP_SOMETHING_NEW")
+        public void on(QQNoticeEvent notice) {
+        }
+    }
+
+    class ReturnsValue {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public int on(QQEvent event) {
+            return 0;
+        }
+    }
+
+    class ContextWithoutCommand {
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void on(OnContext ctx) {
         }
     }
 }

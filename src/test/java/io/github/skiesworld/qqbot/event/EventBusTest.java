@@ -1,7 +1,6 @@
 package io.github.skiesworld.qqbot.event;
 
 import com.google.gson.JsonObject;
-import io.github.skiesworld.qqbot.util.Json;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -10,124 +9,190 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * The dispatch kernel: what order routes run in, what stopping the chain means, and what changes when the bus
+ * runs on a pool instead of inline.
+ */
 class EventBusTest {
 
-    private static QQEvent event(String type, String data) {
-        JsonObject d = Json.parseLenient(data).getAsJsonObject();
-        return new QQEvent("ID1", 0, 5L, type, EventType.from(type), d);
+    private final List<String> seen = new CopyOnWriteArrayList<>();
+
+    private static QQEvent groupMessage(String group, String text) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("group_openid", group);
+        payload.addProperty("content", text);
+        return EventEnvelopes.of("ID", 0, 1L, "GROUP_MESSAGE_CREATE", payload, null);
     }
 
     @Test
-    void deliversToTypeListenersAndClosesSubscriptions() {
+    void routesRunByPriorityThenRegistrationOrder() {
         EventBus bus = new EventBus();
-        List<String> hits = new CopyOnWriteArrayList<>();
-        EventBus.Subscription s = bus.on(EventType.C2C_MESSAGE_CREATE, e -> hits.add(e.name()));
-        bus.on(EventType.FRIEND_ADD, e -> hits.add("friend"));
+        bus.add(handled("late"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 10, false);
+        bus.add(handled("first"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, -1, false);
+        bus.add(handled("default"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 0, false);
 
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"hi\"}"));
-        bus.dispatch(event("FRIEND_ADD", "{\"openid\":\"U\"}"));
-        assertEquals(List.of("C2C_MESSAGE_CREATE", "friend"), hits);
-
-        s.close();
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "{\"content\":\"again\"}"));
-        assertEquals(2, hits.size(), "a closed subscription stops receiving");
+        bus.dispatch(groupMessage("G", "hi"));
+        assertEquals(List.of("first", "default", "late"), seen);
     }
 
     @Test
-    void typedListenerDeserializesThePayload() {
+    void aBlockingRouteEndsTheChainAfterItHandledTheDispatch() {
         EventBus bus = new EventBus();
-        AtomicReference<Payload> seen = new AtomicReference<>();
-        bus.on(EventType.GROUP_AT_MESSAGE_CREATE, Payload.class, seen::set);
-        bus.dispatch(event("GROUP_AT_MESSAGE_CREATE", "{\"content\":\"hello\",\"group_openid\":\"G1\"}"));
-        assertNotNull(seen.get());
-        assertEquals("hello", seen.get().content);
-        assertEquals("G1", seen.get().groupOpenid);
+        bus.add(handled("blocking"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 0, true);
+        bus.add(handled("after"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 1, false);
+
+        bus.dispatch(groupMessage("G", "mine"));
+        assertEquals(List.of("blocking"), seen);
     }
 
     @Test
-    void listenerFailuresIsolateOtherListeners() {
+    void aBlockingRouteThatDidNotHandleTheDispatchLeavesTheChainAlone() {
         EventBus bus = new EventBus();
-        AtomicReference<String> survivor = new AtomicReference<>();
-        bus.on(EventType.C2C_MESSAGE_CREATE, e -> {
-            throw new IllegalStateException("boom");
-        });
-        bus.on(EventType.C2C_MESSAGE_CREATE, e -> survivor.set(e.id()));
-        bus.dispatch(event("C2C_MESSAGE_CREATE", "{}"));
-        assertEquals("ID1", survivor.get());
+        bus.add(event -> false, List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 0, true);
+        bus.add(handled("reached"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 1, false);
+
+        bus.dispatch(groupMessage("G", "not mine"));
+        assertEquals(List.of("reached"), seen);
     }
 
     @Test
-    void unknownEventNamesStayReachable() {
+    void typedNameAndWildcardRoutesEachSeeTheSameDispatch() {
         EventBus bus = new EventBus();
-        AtomicReference<QQEvent> any = new AtomicReference<>();
-        bus.on(EventType.UNKNOWN, e -> any.set(e));
-        bus.dispatch(event("SOME_FUTURE_EVENT", "{\"x\":1}"));
-        assertNotNull(any.get());
-        assertEquals(EventType.UNKNOWN, any.get().type());
-        assertEquals("SOME_FUTURE_EVENT", any.get().name());
-        assertEquals(1, any.get().rawObject().get("x").getAsInt());
+        bus.on(EventType.FRIEND_ADD, e -> seen.add("typed"));
+        bus.onName("FRIEND_ADD", e -> seen.add("byName"));
+        bus.onAny(e -> seen.add("any"));
+
+        bus.dispatch(EventEnvelopes.of(null, 0, null, "FRIEND_ADD", new JsonObject(), null));
+        assertEquals(List.of("typed", "byName", "any"), seen);
+        assertEquals(3, bus.listenerCount());
     }
 
     @Test
-    void nameListenersCatchEventsWithoutAModelledType() {
+    void closingASubscriptionRemovesOnlyThatRoute() {
         EventBus bus = new EventBus();
-        List<String> names = new CopyOnWriteArrayList<>();
-        bus.onName("AUDIO_START", e -> names.add(e.name()));
-        bus.dispatch(event("AUDIO_START", "{\"channel_id\":\"C\"}"));
-        bus.dispatch(event("AUDIO_FINISH", "{\"channel_id\":\"C\"}"));
-        assertEquals(List.of("AUDIO_START"), names);
+        EventBus.Subscription gone = bus.on(EventType.C2C_MESSAGE_CREATE, e -> seen.add("gone"));
+        bus.on(EventType.C2C_MESSAGE_CREATE, e -> seen.add("stays"));
+
+        gone.close();
+        bus.dispatch(EventEnvelopes.of(null, 0, null, "C2C_MESSAGE_CREATE", new JsonObject(), null));
+        assertEquals(List.of("stays"), seen);
+        assertEquals(1, bus.listenerCount());
     }
 
     @Test
-    void asyncDispatcherMovesWorkOffTheCallingThread() throws Exception {
-        ExecutorService pool = Executors.newSingleThreadExecutor(r -> new Thread(r, "bus-test"));
-        CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<String> thread = new AtomicReference<>();
+    void aThrowingRouteNeitherBreaksTheChainNorCountsAsHandled() {
+        EventBus bus = new EventBus();
+        bus.add(event -> {
+            throw new IllegalStateException("user code");
+        }, List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 0, true);
+        bus.add(handled("next"), List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 1, false);
+
+        bus.dispatch(groupMessage("G", "hi"));
+        assertEquals(List.of("next"), seen);
+    }
+
+    @Test
+    void aRouteRegisteredForNothingCouldNeverRun() {
+        EventBus bus = new EventBus();
+        assertThrows(IllegalArgumentException.class,
+                () -> bus.add(handled("never"), List.of(), List.of(), false, 0, false));
+    }
+
+    @Test
+    void onAPoolASlowRouteDoesNotDelayTheSiblingRouteOfTheSameEvent() throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(4);
         try {
-            EventBus bus = new EventBus(pool::execute);
-            bus.onAny(e -> {
-                thread.set(Thread.currentThread().getName());
-                done.countDown();
-            });
-            bus.dispatch(event("FRIEND_DEL", "{}"));
-            assertTrue(done.await(3, TimeUnit.SECONDS));
-            assertEquals("bus-test", thread.get());
+            EventBus bus = new EventBus(pool);
+            CountDownLatch slowStarted = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            CountDownLatch siblingRan = new CountDownLatch(1);
+            CountDownLatch slowDone = new CountDownLatch(1);
+            bus.add(event -> {
+                slowStarted.countDown();
+                await(release);
+                seen.add("slow:done");
+                slowDone.countDown();
+                return true;
+            }, List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 0, false);
+            bus.add(event -> {
+                seen.add("sibling");
+                siblingRan.countDown();
+                return true;
+            }, List.of(EventType.GROUP_MESSAGE_CREATE), List.of(), false, 1, false);
+
+            bus.dispatch(groupMessage("G1", "one"));
+            assertTrue(slowStarted.await(2, TimeUnit.SECONDS), "the first route started");
+            assertTrue(siblingRan.await(2, TimeUnit.SECONDS),
+                    "the sibling route ran while the first one was still working");
+            release.countDown();
+            assertTrue(slowDone.await(2, TimeUnit.SECONDS), "the slow route finished");
         } finally {
             pool.shutdownNow();
         }
     }
 
     @Test
-    void reportsListenerTotals() {
-        EventBus bus = new EventBus();
-        assertEquals(0, bus.listenerCount());
-        bus.onAny(e -> { });
-        bus.on(EventType.GUILD_CREATE, e -> { });
-        bus.onName("X", e -> { });
-        assertEquals(3, bus.listenerCount());
+    void theSameConversationAndRouteKeepArrivalOrderWhileOtherConversationsRunAlong() throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(4);
+        try {
+            EventBus bus = new EventBus(pool);
+            CountDownLatch started = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(3);
+            bus.on(EventType.GROUP_MESSAGE_CREATE, event -> {
+                String group = event.conversationId();
+                String text = event.rawObject().get("content").getAsString();
+                if ("slow".equals(text)) {
+                    started.countDown();
+                    await(release);
+                }
+                seen.add(group + ':' + text);
+                done.countDown();
+            });
+            bus.dispatch(groupMessage("G1", "slow"));
+            bus.dispatch(groupMessage("G1", "second"));
+            bus.dispatch(groupMessage("G2", "other"));
+            assertTrue(started.await(20, TimeUnit.SECONDS), "the first dispatch is being held up");
+            release.countDown();
+
+            assertTrue(done.await(20, TimeUnit.SECONDS), "all three finished: " + seen);
+            assertTrue(seen.indexOf("G1:slow") < seen.indexOf("G1:second"),
+                    "the two dispatches of one conversation finished in arrival order: " + seen);
+            assertEquals(3, seen.size());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private EventBus.Listener handled(String what) {
+        return event -> {
+            seen.add(what);
+            return true;
+        };
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await(20, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test
-    void qqEventExposesEnvelopeAndConvenienceAccessors() {
-        QQEvent e = event("C2C_MESSAGE_CREATE",
-                "{\"id\":\"MSG1\",\"content\":\"text\",\"author\":{\"user_openid\":\"U7\"}}");
-        assertEquals("text", e.rawObject().get("content").getAsString());
-        assertEquals("U7", e.targetId());
-        assertNotNull(e.raw());
-        assertEquals("MSG1", e.rawObject().get("id").getAsString());
-        assertTrue(e.toString().contains("C2C_MESSAGE_CREATE"), e.toString());
-    }
-
-    @SuppressWarnings("unused")
-    private static final class Payload {
-        String content;
-        @com.google.gson.annotations.SerializedName("group_openid")
-        String groupOpenid;
+    void aDispatchWithNoListenerTakesNoTaskAtAll() {
+        AtomicInteger submissions = new AtomicInteger();
+        EventBus bus = new EventBus(command -> {
+            submissions.incrementAndGet();
+            command.run();
+        });
+        bus.dispatch(groupMessage("G", "nobody is listening"));
+        assertEquals(0, submissions.get());
     }
 }

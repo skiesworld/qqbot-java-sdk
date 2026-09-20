@@ -4,7 +4,7 @@ import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.QQBotClient;
 import io.github.skiesworld.qqbot.callback.WebhookServer;
 import io.github.skiesworld.qqbot.event.EventType;
-import io.github.skiesworld.qqbot.handler.BotEvent;
+import io.github.skiesworld.qqbot.handler.On;
 import io.github.skiesworld.qqbot.message.MessageSegments;
 import io.github.skiesworld.qqbot.websocket.Intent;
 
@@ -67,16 +67,16 @@ public final class WebhookBot {
         QQBotClient bot = QQBotClient.create(config);
         bot.handlers().register(new Callbacks());
         bot.events().on(EventType.C2C_MESSAGE_CREATE, event -> Env.log("[{}] c2c {}: {}", appId,
-                event.targetId(), MessageSegments.of(event).text()));
+                event.conversationId(), MessageSegments.of(event).text()));
         return bot;
     }
 
     /** 与 HandlerBot 里的写法完全相同：换传输不换业务代码。 */
     public static class Callbacks {
 
-        @BotEvent(EventType.GROUP_AT_MESSAGE_CREATE)
+        @On(EventType.GROUP_AT_MESSAGE_CREATE)
         public void onGroup(io.github.skiesworld.qqbot.event.QQEvent event) {
-            Env.log("group %s: %s", event.targetId(), MessageSegments.of(event).text());
+            Env.log("group %s: %s", event.conversationId(), MessageSegments.of(event).text());
         }
     }
 }
