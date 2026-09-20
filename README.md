@@ -103,13 +103,13 @@ bots.register(botA, botB).startAll();
 
 bots.get(appId);              // Optional<QQBotClient>，按 app id 找
 bots.getBot();                // 单 bot 进程的简写；0 个或多个时直接报错
-bots.getBots();               // 注册顺序
+bots.getBots();               // 注册顺序；要给每个 bot 做同一个管理动作就自己 for 一遍
 bots.isOnline(appId);         // 是否已经在线，与「是否注册」是两个问题
-bots.broadcast(bot -> bot.api().menu().setMenu(menu));   // 同一个管理动作，坏凭证不拖累别人
+bots.startAll();              // 按各自的 transport 拉起
 bots.close();                 // 逆序关掉每个 bot，再释放共享端点
 ```
 
-同一个 app id 只接受一次——两个 bot 会把同一批事件各答一遍。挂在共享端点上的 bot 被 `close()` 时只摘掉自己那条路由，端口留给别人；注册表关的时候才真正释放 socket。`READY` / `RESUMED` 也在总线上（`@On(EventType.READY)`），「上线后拉一次全量」这类逻辑因此可以写成事件处理器。
+同一个 app id 只接受一次——两个 bot 会把同一批事件各答一遍。挂在共享端点上的 bot 被 `close()` 时只摘掉自己那条路由，端口留给别人；注册表关的时候才真正释放 socket。这里故意**不提供**「一条消息发给所有 bot / 所有会话」的便捷方法：`getBots()` 已经在手上了，少一个看起来很顺手、但语义上等于「不查对象就把喇叭对准全部人」的入口。`READY` / `RESUMED` 也在总线上（`@On(EventType.READY)`），「上线后拉一次全量」这类逻辑因此可以写成事件处理器。
 
 网关状态想监听就挂 `Gateway.Listener`（`onReady` / `onResumed` / `onStateChange` / `onError`）；心跳、断线 Resume 与 `4xxx` 关闭码的重连判定都在 SDK 里。
 
@@ -356,7 +356,7 @@ try {
 ```
 src/main/java/io/github/skiesworld/qqbot/
 ├── QQBotClient          入口：start() / api() / events() / handlers() / audits() / gateway() / webhook()
-├── Bots                 多账号注册表：get / getBot / getBots / isOnline / startAll / broadcast / close
+├── Bots                 多账号注册表：get / getBot / getBots / isOnline / startAll / close
 ├── BotConfig            appId、密钥、intents、分片、超时与重试、传输方式（网关 or 回调）
 ├── api                  按官方模块分组的接口方法 + endpoint/Endpoints 常量
 ├── audit                审核结论：Audits / AuditOutcome / AuditStatus
@@ -482,7 +482,7 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 ## 测试
 
 ```bash
-./gradlew test           # 238 个离线测试
+./gradlew test           # 237 个离线测试
 ./gradlew build          # 编译 + 测试 + jar + sources + javadoc
 ```
 

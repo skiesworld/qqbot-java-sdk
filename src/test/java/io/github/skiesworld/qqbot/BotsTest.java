@@ -83,21 +83,6 @@ class BotsTest {
     }
 
     @Test
-    void broadcastReachesEveryBotAndOneFailureDoesNotStopTheRest() {
-        List<String> touched = new java.util.ArrayList<>();
-        QQBotClient broken = websocketBot("BAD");
-        try (Bots bots = new Bots().register(websocketBot("OK1"), broken, websocketBot("OK2"))) {
-            bots.broadcast(bot -> {
-                if (bot == broken) {
-                    throw new IllegalStateException("bad credentials");
-                }
-                touched.add(bot.config().appId());
-            });
-        }
-        assertEquals(List.of("OK1", "OK2"), touched);
-    }
-
-    @Test
     void callbackBotsShareOneSocketOnTheirOwnRoutes() throws Exception {
         Bots bots = new Bots().webhookEndpoint("127.0.0.1", 0);
         QQBotClient a = callbackBot("A", 0, "/qq/A");

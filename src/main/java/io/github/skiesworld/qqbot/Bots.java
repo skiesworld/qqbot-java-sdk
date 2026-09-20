@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 /**
  * The bots one process runs, looked up by app id — which is what a plugin, a command handler or a web route
@@ -25,9 +24,9 @@ import java.util.function.Consumer;
  * bots.register(QQBotClient.create(configA)).register(QQBotClient.create(configB));
  * bots.startAll();
  *
- * bots.get(appId)              -> Optional&lt;QQBotClient&gt;      // by app id
- * bots.getBot()                -> the only bot, or an error   // single-bot process shorthand
- * bots.broadcast(bot -&gt; bot.api().menu().setMenu(...));     // the same admin call on each
+ * bots.get(appId)              -&gt; Optional&lt;QQBotClient&gt;      // by app id
+ * bots.getBot()                -&gt; the only bot, or an error   // single-bot process shorthand
+ * bots.getBots()               -&gt; every bot, in registration order
  * }</pre>
  *
  * <p>Registration is by app id and an id is accepted once, because two bots on one id would answer the same
@@ -141,21 +140,6 @@ public final class Bots implements Closeable {
             bot.start();
         }
         return this;
-    }
-
-    /**
-     * Run one action on every bot — the call that belongs to an admin surface rather than a conversation. A bot
-     * that throws is logged and skipped, because one bad credential should not stop the others from being
-     * updated.
-     */
-    public void broadcast(Consumer<QQBotClient> action) {
-        for (QQBotClient bot : byAppId.values()) {
-            try {
-                action.accept(bot);
-            } catch (RuntimeException | Error e) {
-                log.error("broadcast failed for bot {}", bot.config().appId(), e);
-            }
-        }
     }
 
     private void mount(QQBotClient bot) {
