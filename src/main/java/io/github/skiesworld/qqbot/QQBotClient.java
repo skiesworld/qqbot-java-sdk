@@ -109,7 +109,8 @@ public final class QQBotClient implements Closeable {
         return media;
     }
 
-    /** The counter behind {@link QQMessage#reply} style answers: one {@code msg_seq} per original message. */
+    /** The counter behind {@link io.github.skiesworld.qqbot.event.QQMessageEvent#reply(String)}: one
+     * {@code msg_seq} per original message. */
     public ReplySequence replies() {
         return replies;
     }
