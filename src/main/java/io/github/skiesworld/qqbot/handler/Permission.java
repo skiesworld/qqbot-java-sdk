@@ -4,17 +4,27 @@ import io.github.skiesworld.qqbot.QQBotClient;
 import io.github.skiesworld.qqbot.event.QQEvent;
 
 /**
- * A gate in front of one handler method: allowed, or not, for this dispatch.
+ * A reusable answer to "may this dispatch through".
  *
- * <p>Two ways to write one. As a class here, when the rule is shared across bots or plugins — the built-ins in
- * {@link Permissions}, or your own with a public no-arg constructor, or one registered through
- * {@link HandlerRegistry#permission}. Or as a method on the handler itself, which needs no interface at all:
- * annotate it {@link Check} with no name, let its parameters be filled exactly like a handler's, and return
- * {@code boolean}.
+ * <p>Two ways to write one:
  *
- * <p>A gate runs after the method's own arguments have bound, so on a {@code @Command} it is only consulted for
- * messages that actually matched the command. Denied, throwing and unbindable all mean "not allowed" — a gate that
- * cannot decide must never let the action through — and each is logged.
+ * <ul>
+ *   <li>a lambda or a class implementing {@link #allows}, which sees the dispatch and the bot and nothing else;
+ *   <li>a class with a single {@code boolean} method of its own — {@code check(QQMessageEvent msg)},
+ *       {@code check(GroupJoinRequestEvent request, QQBotClient bot)} — whose parameters are filled by the same
+ *       type rules as a handler's, so the rule asks only for what it actually looks at. A dispatch that cannot
+ *       answer for one of them is denied rather than let through, which is what makes
+ *       {@code boolean check(QQMessageEvent msg)} read as "only where there is a message to read".
+ * </ul>
+ *
+ * <p>Name the class in {@link On#requires()} or {@link Check#type()} to use it. One that needs configuration —
+ * a set of ids, a scene, a threshold — has no no-arg constructor, so hand it to
+ * {@link HandlerRegistry#permission(Class, java.util.function.Supplier)} first. The built-in answers are in
+ * {@link Permissions}.
+ *
+ * <p>A gate runs after the method's own arguments have bound, so on a command it is only consulted for messages
+ * that actually matched. Denied, throwing and unbindable all mean "not allowed" — a gate that cannot decide must
+ * never let the action through — and each is logged.
  */
 public interface Permission {
 

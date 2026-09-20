@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.event.EventBus;
+import io.github.skiesworld.qqbot.event.EventEnvelopes;
 import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
 import io.github.skiesworld.qqbot.error.QQBotException;
@@ -317,22 +318,20 @@ public final class Gateway implements Closeable {
                 l.onReady(sessionId, d.has("user") ? d.get("user") : null);
             }
             log.info("gateway ready session={} shard=[{},{}]", sessionId, config.shardId(), config.shardCount());
-            return;
-        }
-        if (EventType.RESUMED.name().equals(name)) {
+        } else if (EventType.RESUMED.name().equals(name)) {
             reconnects.set(0);
             setState(State.CONNECTED);
             for (Listener l : listeners) {
                 l.onResumed();
             }
             log.info("gateway session resumed from seq={}", seq);
-            return;
         }
         if (eventBus == null) {
             return;
         }
-        eventBus.dispatch(new QQEvent(payload.id(), payload.op(), payload.seq(), name,
-                EventType.from(name), payload.data()));
+        // READY and RESUMED reach the bus too: they are the only way a handler can see the session open.
+        eventBus.dispatch(EventEnvelopes.of(payload.id(), payload.op(), payload.seq(), name, payload.data(),
+                eventBus.outbound()));
     }
 
     private void send(String text) {

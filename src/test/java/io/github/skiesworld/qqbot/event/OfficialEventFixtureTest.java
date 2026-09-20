@@ -88,7 +88,7 @@ class OfficialEventFixtureTest {
                 "C2C_MESSAGE_CREATE", EventType.C2C_MESSAGE_CREATE, c2c.payload);
 
         assertEquals(c2c.payload.getAsJsonObject("author").get("user_openid").getAsString(),
-                envelope.targetId(), "single chat events key off the sender openid");
+                envelope.conversationId(), "single chat events key off the sender openid");
         Object typed = envelope.data();
         List<String> wires = wireNames(typed.getClass());
         assertTrue(wires.contains("message_type"), String.valueOf(wires));

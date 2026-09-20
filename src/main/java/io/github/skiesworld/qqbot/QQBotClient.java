@@ -1,28 +1,39 @@
 package io.github.skiesworld.qqbot;
 
 import io.github.skiesworld.qqbot.api.Api;
+import io.github.skiesworld.qqbot.audit.Audits;
 import io.github.skiesworld.qqbot.callback.WebhookHandler;
 import io.github.skiesworld.qqbot.callback.WebhookServer;
-import io.github.skiesworld.qqbot.command.CommandRegistry;
 import io.github.skiesworld.qqbot.event.EventBus;
+import io.github.skiesworld.qqbot.event.Outbound;
+import io.github.skiesworld.qqbot.event.QQEvent;
 import io.github.skiesworld.qqbot.handler.HandlerRegistry;
 import io.github.skiesworld.qqbot.http.Endpoint;
 import io.github.skiesworld.qqbot.http.HttpTransport;
 import io.github.skiesworld.qqbot.http.Params;
 import io.github.skiesworld.qqbot.media.MediaUploader;
+import io.github.skiesworld.qqbot.message.MessageBuilder;
+import io.github.skiesworld.qqbot.message.ReplySequence;
+import io.github.skiesworld.qqbot.message.ReplyTarget;
 import io.github.skiesworld.qqbot.websocket.Gateway;
 import io.github.skiesworld.qqbot.websocket.Intent;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Entry point tying the pieces together: typed OpenAPI calls, the event bus, whichever inbound transport
- * {@link BotConfig#transport()} selects, rich-media uploads and the handler registries.
+ * {@link BotConfig#transport()} selects, rich-media uploads and the handler registry.
+ *
+ * <p>The client attaches itself to its bus, which is what lets an envelope answer the dispatch it came from —
+ * {@code msg.reply("收到")} on a {@link io.github.skiesworld.qqbot.event.QQMessageEvent} — without a handler
+ * holding on to a client variable.
  *
  * <pre>{@code
  * try (QQBotClient bot = QQBotClient.create("APPID", "SECRET")) {
  *     bot.events().on(io.github.skiesworld.qqbot.event.EventType.C2C_MESSAGE_CREATE, event ->
- *             bot.api().c2c().sendC2CMessage(event.targetId(),
+ *             bot.api().c2c().sendC2CMessage(event.conversationId(),
  *                     io.github.skiesworld.qqbot.model.request.SendC2CMessageRequest.text("pong")));
  *     bot.connect();      // or bot.start(), which follows the configured transport
  * }
@@ -35,11 +46,13 @@ public final class QQBotClient implements Closeable {
     private final EventBus events;
     private final Api api;
     private final MediaUploader media;
+    private final ReplySequence replies = new ReplySequence();
     private volatile Gateway gateway;
     private volatile WebhookHandler webhook;
     private volatile WebhookServer webhookServer;
+    private volatile boolean ownsWebhookServer;
     private volatile HandlerRegistry handlers;
-    private volatile CommandRegistry commands;
+    private volatile io.github.skiesworld.qqbot.audit.Audits audits;
     private final java.util.concurrent.atomic.AtomicBoolean gatewayStarted =
             new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -53,6 +66,17 @@ public final class QQBotClient implements Closeable {
         this.events = events;
         this.api = new Api(transport);
         this.media = new MediaUploader(transport);
+        this.events.outbound(new Outbound() {
+            @Override
+            public void reply(QQEvent event, MessageBuilder body) {
+                ReplyTarget.of(event).send(QQBotClient.this, event, body, replies);
+            }
+
+            @Override
+            public Api api() {
+                return api;
+            }
+        });
     }
 
     public static QQBotClient create(String appId, String clientSecret) {
@@ -85,9 +109,15 @@ public final class QQBotClient implements Closeable {
         return media;
     }
 
+    /** The counter behind {@link QQMessage#reply} style answers: one {@code msg_seq} per original message. */
+    public ReplySequence replies() {
+        return replies;
+    }
+
     /**
-     * Annotated-handler registry bound to this client, so handler methods can ask for {@link Api} or this
-     * client as a parameter.
+     * Annotated-handler registry bound to this client, so handler methods can ask for {@link Api}, this client or
+     * a matched command as a parameter; {@link HandlerRegistry#usePrefixes} and {@link HandlerRegistry#describe()}
+     * are the command-side knobs.
      */
     public HandlerRegistry handlers() {
         HandlerRegistry h = handlers;
@@ -100,20 +130,6 @@ public final class QQBotClient implements Closeable {
             }
         }
         return h;
-    }
-
-    /** Command matching on top of the message events; see {@link CommandRegistry}. */
-    public CommandRegistry commands() {
-        CommandRegistry c = commands;
-        if (c == null) {
-            synchronized (this) {
-                if (commands == null) {
-                    commands = new CommandRegistry(this);
-                }
-                c = commands;
-            }
-        }
-        return c;
     }
 
     /** Lazily created gateway bound to this client's event bus. */
@@ -138,7 +154,7 @@ public final class QQBotClient implements Closeable {
      * <p>Calling {@link #connect()} or {@link #webhookServer()} directly instead is how you opt into one of them
      * regardless of the configured transport — both at once works too, since they share this client's event bus.
      */
-    public QQBotClient start() throws java.io.IOException {
+    public QQBotClient start() throws IOException {
         if (config.transport() == BotConfig.Transport.WEBHOOK) {
             webhookServer();
         } else {
@@ -164,20 +180,61 @@ public final class QQBotClient implements Closeable {
     /**
      * This bot's own callback endpoint, bound on first call. Several bots normally share one
      * {@link WebhookServer} instead of one port each: {@code endpoint.mount(bot)} routes it by app id and keeps
-     * each bot's verification and bus separate.
+     * each bot's verification and bus separate, which is what {@link Bots} does for you.
      */
-    public WebhookServer webhookServer() throws java.io.IOException {
+    public WebhookServer webhookServer() throws IOException {
         WebhookServer s = webhookServer;
         if (s == null) {
             synchronized (this) {
                 if (webhookServer == null) {
                     webhookServer = new WebhookServer(config.webhookHost(), config.webhookPort())
                             .start().mount(this);
+                    ownsWebhookServer = true;
                 }
                 s = webhookServer;
             }
         }
         return s;
+    }
+
+    /**
+     * Answer this bot's callbacks through an endpoint someone else owns, which is what {@link Bots} does: the
+     * route, the verification and the bus stay this bot's, and {@link #close()} leaves the socket up for the
+     * others.
+     */
+    void useSharedEndpoint(WebhookServer shared) {
+        synchronized (this) {
+            webhookServer = Objects.requireNonNull(shared, "shared");
+            ownsWebhookServer = false;
+        }
+    }
+
+    /** Whether the inbound side is up now: the gateway socket connected, or a callback endpoint bound. */
+    public boolean isOnline() {
+        Gateway g = gateway;
+        if (g != null && g.isConnected()) {
+            return true;
+        }
+        WebhookServer s = webhookServer;
+        return s != null && s.isRunning();
+    }
+
+    /**
+     * Waiting for review verdicts on messages this client sent, e.g.
+     * {@code bot.audits().resultOf(auditId, Duration.ofMinutes(5))} after an
+     * {@link io.github.skiesworld.qqbot.error.AuditPendingException}.
+     */
+    public Audits audits() {
+        Audits a = audits;
+        if (a == null) {
+            synchronized (this) {
+                if (audits == null) {
+                    audits = new Audits(events);
+                }
+                a = audits;
+            }
+        }
+        return a;
     }
 
     /** Open the event gateway without blocking; returns once the socket has been requested. */
@@ -216,7 +273,11 @@ public final class QQBotClient implements Closeable {
         }
         WebhookServer s = webhookServer;
         if (s != null) {
-            s.close();
+            if (ownsWebhookServer) {
+                s.close();
+            } else {
+                s.unmount(config.webhookPath());
+            }
         }
         transport.close();
     }

@@ -5,7 +5,7 @@ import io.github.skiesworld.qqbot.callback.WebhookHandler;
 import io.github.skiesworld.qqbot.callback.WebhookServer;
 import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
-import io.github.skiesworld.qqbot.handler.BotEvent;
+import io.github.skiesworld.qqbot.handler.On;
 import io.github.skiesworld.qqbot.websocket.Intent;
 import org.junit.jupiter.api.Test;
 
@@ -132,18 +132,14 @@ class QQBotClientTransportTest {
     @SuppressWarnings("unused")
     class Handlers {
 
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void onMessage(C2CMessageBody msg, QQEvent raw) {
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void onMessage(io.github.skiesworld.qqbot.event.model.C2CMessageCreate msg, QQEvent raw) {
             hits.add(msg.content + "/" + raw.id());
         }
 
-        @BotEvent(EventType.FRIEND_ADD)
+        @On(EventType.FRIEND_ADD)
         public void onFriend(QQEvent raw) {
             hits.add(raw.name());
         }
-    }
-
-    static final class C2CMessageBody {
-        String content;
     }
 }

@@ -3,8 +3,7 @@ package io.github.skiesworld.qqbot.callback;
 import com.google.gson.JsonObject;
 import io.github.skiesworld.qqbot.error.SignatureException;
 import io.github.skiesworld.qqbot.event.EventBus;
-import io.github.skiesworld.qqbot.event.EventType;
-import io.github.skiesworld.qqbot.event.QQEvent;
+import io.github.skiesworld.qqbot.event.EventEnvelopes;
 import io.github.skiesworld.qqbot.util.Json;
 import io.github.skiesworld.qqbot.util.Strings;
 import org.slf4j.Logger;
@@ -64,12 +63,13 @@ public final class WebhookHandler {
         }
         if (eventBus != null && payload.has("t")) {
             String name = payload.get("t").getAsString();
-            eventBus.dispatch(new QQEvent(
+            eventBus.dispatch(EventEnvelopes.of(
                     payload.has("id") ? payload.get("id").getAsString() : null,
                     op,
                     payload.has("s") && !payload.get("s").isJsonNull() ? payload.get("s").getAsLong() : null,
-                    name, EventType.from(name),
-                    payload.has("d") ? payload.get("d") : new JsonObject()));
+                    name,
+                    payload.has("d") ? payload.get("d") : new JsonObject(),
+                    eventBus.outbound()));
         } else {
             log.debug("callback op={} dispatched nothing (no t field)", op);
         }

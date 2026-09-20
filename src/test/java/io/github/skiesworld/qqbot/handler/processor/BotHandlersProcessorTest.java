@@ -6,7 +6,7 @@ import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
 import io.github.skiesworld.qqbot.util.Json;
 import io.github.skiesworld.qqbot.event.model.C2CMessageCreate;
-import io.github.skiesworld.qqbot.handler.BotEvent;
+import io.github.skiesworld.qqbot.handler.On;
 import io.github.skiesworld.qqbot.handler.BotHandler;
 import io.github.skiesworld.qqbot.handler.BotHandlers;
 import io.github.skiesworld.qqbot.handler.HandlerRegistry;
@@ -58,7 +58,7 @@ class BotHandlersProcessorTest {
                 import io.github.skiesworld.qqbot.event.EventType;
                 import io.github.skiesworld.qqbot.event.QQEvent;
                 import io.github.skiesworld.qqbot.event.model.C2CMessageCreate;
-                import io.github.skiesworld.qqbot.handler.BotEvent;
+                import io.github.skiesworld.qqbot.handler.On;
                 import io.github.skiesworld.qqbot.handler.BotHandler;
                 import io.github.skiesworld.qqbot.handler.BotHandlers;
                 import java.util.List;
@@ -69,7 +69,7 @@ class BotHandlersProcessorTest {
 
                     public static final List<String> HITS = new CopyOnWriteArrayList<>();
 
-                    @BotEvent(EventType.C2C_MESSAGE_CREATE)
+                    @On(EventType.C2C_MESSAGE_CREATE)
                     public void onC2c(C2CMessageCreate msg, QQEvent raw) {
                         HITS.add(msg.content + "/" + raw.id());
                     }
@@ -100,13 +100,13 @@ class BotHandlersProcessorTest {
 
                 import io.github.skiesworld.qqbot.event.EventType;
                 import io.github.skiesworld.qqbot.event.QQEvent;
-                import io.github.skiesworld.qqbot.handler.BotEvent;
+                import io.github.skiesworld.qqbot.handler.On;
                 import io.github.skiesworld.qqbot.handler.BotHandlers;
 
                 @BotHandlers
                 public class NoMarker {
 
-                    @BotEvent(EventType.C2C_MESSAGE_CREATE)
+                    @On(EventType.C2C_MESSAGE_CREATE)
                     public void onMessage(QQEvent event) {
                     }
                 }
@@ -133,7 +133,7 @@ class BotHandlersProcessorTest {
 
                 import io.github.skiesworld.qqbot.event.EventType;
                 import io.github.skiesworld.qqbot.event.QQEvent;
-                import io.github.skiesworld.qqbot.handler.BotEvent;
+                import io.github.skiesworld.qqbot.handler.On;
                 import io.github.skiesworld.qqbot.handler.BotHandler;
                 import io.github.skiesworld.qqbot.handler.BotHandlers;
 
@@ -142,7 +142,7 @@ class BotHandlersProcessorTest {
                     @BotHandlers
                     public static class Inside implements BotHandler {
 
-                        @BotEvent(EventType.C2C_MESSAGE_CREATE)
+                        @On(EventType.C2C_MESSAGE_CREATE)
                         public void onMessage(QQEvent event) {
                         }
                     }
@@ -191,7 +191,7 @@ class BotHandlersProcessorTest {
      */
     private static String classpath() throws URISyntaxException {
         Set<Path> entries = new LinkedHashSet<>();
-        Class<?>[] needed = {HandlerRegistry.class, BotHandler.class, BotHandlers.class, BotEvent.class,
+        Class<?>[] needed = {HandlerRegistry.class, BotHandler.class, BotHandlers.class, On.class,
                 EventType.class, QQEvent.class, C2CMessageCreate.class, JsonObject.class, OkHttpClient.class,
                 LoggerFactory.class};
         for (Class<?> type : needed) {

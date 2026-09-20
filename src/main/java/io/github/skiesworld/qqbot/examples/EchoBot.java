@@ -28,7 +28,7 @@ public final class EchoBot {
             reply.content = "你说：" + text;
             reply.msgId = event.rawObject().get("id").getAsString();
             reply.msgSeq = 1L;
-            String userOpenid = event.targetId();
+            String userOpenid = event.conversationId();
             Env.log("c2c reply to %s", userOpenid);
             bot.api().c2c().sendC2CMessage(userOpenid, reply);
         });
@@ -54,10 +54,10 @@ public final class EchoBot {
         });
 
         bot.events().on(EventType.FRIEND_ADD, event ->
-                Env.log("new friend %s", event.targetId()));
-        bot.events().on(EventType.FRIEND_DEL, event -> Env.log("friend removed %s", event.targetId()));
-        bot.events().on(EventType.C2C_MSG_RECEIVE, event -> Env.log("push enabled by %s", event.targetId()));
-        bot.events().on(EventType.C2C_MSG_REJECT, event -> Env.log("push disabled by %s", event.targetId()));
+                Env.log("new friend %s", event.conversationId()));
+        bot.events().on(EventType.FRIEND_DEL, event -> Env.log("friend removed %s", event.conversationId()));
+        bot.events().on(EventType.C2C_MSG_RECEIVE, event -> Env.log("push enabled by %s", event.conversationId()));
+        bot.events().on(EventType.C2C_MSG_REJECT, event -> Env.log("push disabled by %s", event.conversationId()));
 
         bot.connectAndAwaitReady(20_000);
         Env.log("echo bot online, press Ctrl+C to exit");

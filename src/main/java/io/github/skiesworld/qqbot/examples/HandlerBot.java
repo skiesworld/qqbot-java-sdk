@@ -2,118 +2,138 @@ package io.github.skiesworld.qqbot.examples;
 
 import com.google.gson.JsonObject;
 import io.github.skiesworld.qqbot.QQBotClient;
-import io.github.skiesworld.qqbot.api.Api;
-import io.github.skiesworld.qqbot.command.Command;
-import io.github.skiesworld.qqbot.command.CommandContext;
-import io.github.skiesworld.qqbot.command.Role;
 import io.github.skiesworld.qqbot.event.EventType;
+import io.github.skiesworld.qqbot.event.GroupJoinRequestEvent;
+import io.github.skiesworld.qqbot.event.InteractionEvent;
 import io.github.skiesworld.qqbot.event.QQEvent;
-import io.github.skiesworld.qqbot.event.model.C2CMessageCreate;
-import io.github.skiesworld.qqbot.event.model.GroupAtMessageCreate;
-import io.github.skiesworld.qqbot.handler.BotEvent;
+import io.github.skiesworld.qqbot.event.QQMessageEvent;
+import io.github.skiesworld.qqbot.event.QQNoticeEvent;
 import io.github.skiesworld.qqbot.handler.BotHandler;
 import io.github.skiesworld.qqbot.handler.BotHandlers;
 import io.github.skiesworld.qqbot.handler.Check;
+import io.github.skiesworld.qqbot.handler.On;
+import io.github.skiesworld.qqbot.handler.OnContext;
 import io.github.skiesworld.qqbot.handler.Permissions;
-import io.github.skiesworld.qqbot.message.MessageBuilder;
-import io.github.skiesworld.qqbot.message.MessageSegments;
-import io.github.skiesworld.qqbot.message.Segment;
+import io.github.skiesworld.qqbot.model.SetMemberMuteState;
+import io.github.skiesworld.qqbot.model.request.SetGroupMemberMuteRequest;
 import io.github.skiesworld.qqbot.websocket.Intent;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Set;
+
 /**
- * 注解式机器人：handler 类按参数类型注入、消息段读取、@Command 命令匹配。
+ * 注解式机器人：handler 类按参数类型接事件，命令按词或正则匹配，门禁写在注解上。
+ *
+ * <p>事件集合不用写全：参数写 {@link QQMessageEvent} 就是「所有带文本的消息事件」，写
+ * {@link GroupJoinRequestEvent} 就只是那一个事件。
  *
  * <pre>
- *   QQ_APP_ID=... QQ_APP_SECRET=... ./gradlew runExample -Pexample=HandlerBot
+ *   QQ_APP_ID=... QQ_APP_SECRET=... QQ_SUPER_USERS=id1,id2 \
+ *       ./gradlew runExample -Pexample=HandlerBot
  * </pre>
- *
- * <p>{@code bot.handlers().register(...)} 与 {@code bot.commands().register(...)} 都走反射装配，编译期不需要
- * 注解处理器。想用 ServiceLoader 自动发现：handler 类实现 {@link BotHandler} 并保留 @BotHandlers，在自己的构建里
- * 启用本 SDK 附带的处理器（JDK 21+ 需要 {@code -proc:full}，或显式配置 {@code --processor-path}），然后把两行
- * register 换成 {@code registerDiscovered()}。
  */
-public final class HandlerBot {
+@BotHandlers("handler")
+public final class HandlerBot implements BotHandler {
 
-    private HandlerBot() {
-    }
+    private final Set<String> superUsers = Set.of(Env.required("QQ_SUPER_USERS").split(","));
 
     public static void main(String[] args) throws Exception {
-        QQBotClient bot = Env.client(Intent.GROUP_AND_C2C_EVENT, Intent.PUBLIC_GUILD_MESSAGES);
-
-        bot.handlers().register(new ChatHandlers());
-        bot.commands().usePrefixes("/", "").register(new ChatCommands());
-        Env.log("commands: {}", bot.commands().describe());
-
-        bot.connectAndAwaitReady(20_000);
-        Env.log("annotated bot online, press Ctrl+C to exit");
+        QQBotClient bot = Env.client(Intent.GROUP_AND_C2C_EVENT, Intent.GROUP_MEMBER_EVENT,
+                Intent.INTERACTION);
+        HandlerBot handlers = new HandlerBot();
+        bot.handlers().usePrefixes("/", "");        // 群消息本来就必须 @ 机器人，前缀只是可选的更严
+        bot.handlers().register(handlers);
+        bot.start();
+        Env.log("commands: {}", String.join(" | ", bot.handlers().describe()));
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close));
         Thread.currentThread().join();
     }
 
-    /** 事件层：参数按类型注入，方法名与顺序随你安排。 */
-    @BotHandlers("chat")
-    public static class ChatHandlers implements BotHandler {
-
-        @BotEvent(EventType.C2C_MESSAGE_CREATE)
-        public void onPrivateMessage(C2CMessageCreate msg, QQEvent raw) {
-            MessageSegments segments = MessageSegments.of(raw);
-            Env.log("c2c {}: {} ({} segment(s))", msg.author.username, segments.text(),
-                    segments.segments().size());
-            // 图片、语音等在 attachments 里，content 文本中没有可回填的位置
-            for (Segment.Media media : segments.segmentsOfType(Segment.Media.class)) {
-                Env.log("  {} {} {}", media.kind(), media.attachment().filename, media.attachment().url);
-            }
-        }
-
-        @BotEvent(EventType.GROUP_AT_MESSAGE_CREATE)
-        public void onGroupMessage(GroupAtMessageCreate msg, QQEvent raw, Api api) {
-            api.group().sendGroupMessage(msg.groupOpenid, MessageBuilder.of("这条群消息有 "
-                    + MessageSegments.of(raw).mentions().size() + " 个 @")
-                    .replyTo(raw.id()).seq(1L).toGroup());
-        }
-
-        /** 官方新增、SDK 还没建模的事件用名字接住。 */
-        @BotEvent(name = "GROUP_SOMETHING_NEW")
-        public void onUnmodelled(JsonObject body, QQEvent raw) {
-            Env.log("raw %s -> %s", raw.name(), body);
-        }
+    /** 参数决定订阅什么：这里是六个带文本的消息事件。 */
+    @On
+    public void onAnyMessage(QQMessageEvent msg) {
+        Env.log("[{}] {}: {}", msg.scene(), msg.senderId(), msg.content());
     }
 
-    /** 命令层：默认无需前缀（群消息已经要求 @ 机器人），这里额外允许 "/"。 */
-    @BotHandlers("commands")
-    public static class ChatCommands implements BotHandler {
+    /** 一个方法多个事件；不接信封时参数照旧是 payload。 */
+    @On({EventType.FRIEND_ADD, EventType.FRIEND_DEL})
+    public void onFriendToggle(QQEvent raw) {
+        Env.log("{} from {}", raw.name(), raw.conversationId());
+    }
 
-        private static final java.util.Set<String> SUPER_USERS = java.util.Set.of("换成你的 openid");
+    /** 通知事件里的人由路由表指明：这条报的是「谁退的群」。 */
+    @On(EventType.GROUP_MEMBER_REMOVE)
+    public void onMemberLeft(QQNoticeEvent notice) {
+        notice.subject().ifPresent(member -> Env.log("{} left {}", member, notice.conversationId()));
+    }
 
-        @Command(value = {"帮助", "help"}, description = "列出可用命令")
-        public void help(CommandContext ctx) {
-            ctx.reply(String.join("\n", ctx.client().commands().describe()));
+    /** 加群申请在事件上就能答；不答就一直挂着。 */
+    @On
+    public void onJoinRequest(GroupJoinRequestEvent request) {
+        if (request.verifyMessage() == null || request.verifyMessage().isBlank()) {
+            request.deny("请先回答入群问题");
+            return;
         }
+        request.approve();
+        Env.log("admitted {} into {}", request.applicant(), request.groupId());
+    }
 
-        @Command(value = "复读 (.+)", kind = Command.Kind.REGEX)
-        public void repeat(CommandContext ctx) {
-            ctx.reply("你说：" + ctx.groups().get(0));
-        }
+    /** 按钮点击要先应答再做事，答晚了用户已经走了。 */
+    @On
+    public void onButton(InteractionEvent interaction) {
+        interaction.acknowledge();
+        Env.log("interaction {} from {}", interaction.interactionId(), interaction.actor().orElse("?"));
+    }
 
-        /** 门禁本体：返回 boolean，参数按需声明。写进 @Check 的名字就是它。 */
-        @Check
-        boolean superUser(io.github.skiesworld.qqbot.event.QQEvent raw) {
-            return SUPER_USERS.contains(Permissions.senderId(raw));
-        }
+    /** 尚未建模的事件名：拿不到信封，就用原始 d。 */
+    @On(name = "GROUP_SOMETHING_NEW")
+    public void onFutureEvent(JsonObject body) {
+        Env.log("unmodelled event: {}", body);
+    }
 
-        /** 自己维护的白名单，比角色门更直白。 */
-        @Command(value = "全局设置", description = "仅超级用户")
-        @Check("superUser")
-        public void configure(CommandContext ctx) {
-            ctx.reply("只回给你看");
-        }
+    // ---- 命令 ----
 
-        /** 群里只有管理员能改；单聊不报角色，所以不受这条限制。 */
-        @Command(value = "状态", role = Role.ADMIN, description = "仅管理员")
-        public void status(CommandContext ctx) {
-            ctx.reply(MessageBuilder.create()
-                    .markdown("**场景** " + ctx.scene() + "\n**角色** " + ctx.role() + "\n**消息号** "
-                            + ctx.messageId()));
-        }
+    @On(command = {"帮助", "help"}, priority = -10, description = "列出命令")
+    public void help(OnContext ctx) {
+        ctx.reply("/复读 <文本> · /禁言 <member_openid> <分钟> · /状态");
+    }
+
+    @On(command = "复读", description = "把参数原样发回")
+    public void repeat(OnContext ctx) {
+        ctx.reply(ctx.rest());
+    }
+
+    @On(command = "禁言 (\\S+) (\\d+)", kind = On.Kind.REGEX,
+            requires = {Permissions.Group.class, Permissions.GroupAdmin.class}, description = "群管限时禁言")
+    public void mute(OnContext ctx) {
+        SetMemberMuteState state = new SetMemberMuteState();
+        state.op = "add";
+        state.memberOpenid = ctx.groups().get(0);
+        state.muteExpireAt = OffsetDateTime.now(ZoneOffset.UTC)
+                .plusMinutes(Long.parseLong(ctx.groups().get(1))).toString();
+        SetGroupMemberMuteRequest request = new SetGroupMemberMuteRequest();
+        request.members = List.of(state);
+        ctx.api().group().setGroupMemberMute(ctx.message().conversationId(), request);
+        ctx.reply("已禁言 " + state.memberOpenid + " " + ctx.groups().get(1) + " 分钟");
+    }
+
+    /** 名字指向本类的 {@link Check} 方法，声明顺序即判定顺序。 */
+    @On(command = "清档")
+    @Check("superUser")
+    public void wipe(OnContext ctx) {
+        ctx.reply("已清档");
+    }
+
+    @On(command = "状态", requires = Permissions.ToMe.class, block = true, description = "只回答被 @ 的那次")
+    public void status(OnContext ctx) {
+        ctx.reply("在线");
+    }
+
+    /** 门禁本体：接了 QQMessageEvent，所以非消息事件在绑定阶段就被拒。 */
+    @Check
+    boolean superUser(QQMessageEvent msg) {
+        return superUsers.contains(msg.senderId());
     }
 }

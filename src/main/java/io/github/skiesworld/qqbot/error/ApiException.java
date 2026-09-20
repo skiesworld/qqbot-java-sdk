@@ -37,4 +37,17 @@ public class ApiException extends QQBotException {
     public String rawBody() {
         return rawBody;
     }
+
+    /**
+     * Whether this failure means the message went to a reviewer instead of failing — the documented audit codes,
+     * or a response that carried an audit id. The verdict comes later on the event bus, so this is not "not sent".
+     */
+    public boolean isAuditPending() {
+        return AuditPendingException.isAuditCode(errCode) || auditId() != null;
+    }
+
+    /** The {@code message_audit.audit_id} this failure reported, or null when it reported none. */
+    public String auditId() {
+        return AuditPendingException.auditIdOf(rawBody);
+    }
 }
