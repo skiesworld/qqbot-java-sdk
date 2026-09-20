@@ -1,7 +1,12 @@
 package io.github.skiesworld.qqbot;
 
 import io.github.skiesworld.qqbot.callback.WebhookServer;
+import io.github.skiesworld.qqbot.error.QQBotException;
 import io.github.skiesworld.qqbot.websocket.Intent;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,12 +19,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Running several bots in one process: lookup by app id, one callback socket for all of them, and what closing
- * the registry takes with it.
+ * Running several bots in one process: lookup by app id, one callback socket for all of them, what closing the
+ * registry takes with it, and what one unusable account does to the rest.
  */
 class BotsTest {
 
     private static final String SECRET = "abcdefghijklmnopabcdefghijklmnop";
+
+    private final MockWebServer api = new MockWebServer();
+
+    @BeforeEach
+    void startApi() throws Exception {
+        api.start();
+    }
+
+    @AfterEach
+    void stopApi() throws Exception {
+        api.close();
+    }
 
     private static QQBotClient websocketBot(String appId) {
         return QQBotClient.create(BotConfig.builder(appId).clientSecret(SECRET)
@@ -27,11 +44,19 @@ class BotsTest {
                 .build());
     }
 
-    private static QQBotClient callbackBot(String appId, int port, String path) {
+    /** A callback bot whose {@code /users/@me} answers {@code profile}; starting it verifies its credentials. */
+    private QQBotClient callbackBot(String appId, int port, String path, String profile) {
+        api.enqueue(new MockResponse().setBody(profile));
         return QQBotClient.create(BotConfig.builder(appId).clientSecret(SECRET)
+                .accessToken("TOKEN")
+                .apiBase(api.url("/").toString())
                 .intents(Intent.GROUP_AND_C2C_EVENT)
                 .webhook(port, path)
                 .build());
+    }
+
+    private QQBotClient callbackBot(String appId, int port, String path) {
+        return callbackBot(appId, port, path, "{\"id\":\"" + appId + "\",\"username\":\"bot\"}");
     }
 
     @Test
@@ -102,6 +127,21 @@ class BotsTest {
 
         bots.close();
         assertFalse(shared.isRunning());
+    }
+
+    @Test
+    void oneUnusableAccountLeavesTheOthersRunningAndSaysWhichItWas() throws Exception {
+        Bots bots = new Bots().webhookEndpoint("127.0.0.1", 0);
+        bots.register(callbackBot("GOOD", 0, "/qq/GOOD"),
+                callbackBot("BAD", 0, "/qq/BAD", "{\"err_code\":40001,\"message\":\"wrong secret\"}"));
+
+        QQBotException failure = assertThrows(QQBotException.class, bots::startAll);
+        assertTrue(failure.getMessage().contains("BAD"), failure.getMessage());
+        assertTrue(bots.isOnline("GOOD"), "one bad key does not keep a healthy account offline");
+        assertFalse(bots.isOnline("BAD"));
+        assertFalse(bots.endpoint().paths().contains("/qq/BAD"),
+                "a bot that could not identify itself must not be reachable on the shared socket");
+        bots.close();
     }
 
     @Test

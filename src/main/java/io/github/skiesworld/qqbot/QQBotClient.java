@@ -17,6 +17,9 @@ import io.github.skiesworld.qqbot.message.ReplySequence;
 import io.github.skiesworld.qqbot.message.ReplyTarget;
 import io.github.skiesworld.qqbot.websocket.Gateway;
 import io.github.skiesworld.qqbot.websocket.Intent;
+import io.github.skiesworld.qqbot.model.BotProfile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,6 +44,8 @@ import java.util.Objects;
  */
 public final class QQBotClient implements Closeable {
 
+    private static final Logger log = LoggerFactory.getLogger(QQBotClient.class);
+
     private final BotConfig config;
     private final HttpTransport transport;
     private final EventBus events;
@@ -53,6 +58,8 @@ public final class QQBotClient implements Closeable {
     private volatile boolean ownsWebhookServer;
     private volatile HandlerRegistry handlers;
     private volatile io.github.skiesworld.qqbot.audit.Audits audits;
+    private volatile BotProfile selfProfile;
+    private volatile String selfId;
     private final java.util.concurrent.atomic.AtomicBoolean gatewayStarted =
             new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -140,6 +147,12 @@ public final class QQBotClient implements Closeable {
             synchronized (this) {
                 if (gateway == null) {
                     gateway = new Gateway(config, transport, events);
+                    gateway.addListener(new Gateway.Listener() {
+                        @Override
+                        public void onReady(String sessionId, com.google.gson.JsonElement user) {
+                            cacheSelfId(selfIdOf(user));
+                        }
+                    });
                 }
                 g = gateway;
             }
@@ -147,16 +160,35 @@ public final class QQBotClient implements Closeable {
         return g;
     }
 
+    /** The id READY's {@code d.user} reports, under whichever of its two names the platform filled. */
+    private static String selfIdOf(com.google.gson.JsonElement user) {
+        if (user == null || !user.isJsonObject()) {
+            return null;
+        }
+        com.google.gson.JsonObject object = user.getAsJsonObject();
+        for (String key : new String[]{"id", "user_openid"}) {
+            if (object.get(key) != null && !object.get(key).isJsonNull()) {
+                return object.get(key).getAsString();
+            }
+        }
+        return null;
+    }
+
     /**
      * Bring the inbound side up the way {@link BotConfig#transport()} says: open the gateway for
      * {@link BotConfig.Transport#WEBSOCKET}, bind the callback endpoint for {@link BotConfig.Transport#WEBHOOK}.
      * Whatever this starts is stopped by {@link #close()}.
+     *
+     * <p>Callback bots call {@link #self()} first, so a wrong app id, a wrong secret or a bot the platform has
+     * not enabled fails here, before anything is listening. A start that fails this way leaves no half-bound
+     * endpoint behind, and can simply be tried again.
      *
      * <p>Calling {@link #connect()} or {@link #webhookServer()} directly instead is how you opt into one of them
      * regardless of the configured transport — both at once works too, since they share this client's event bus.
      */
     public QQBotClient start() throws IOException {
         if (config.transport() == BotConfig.Transport.WEBHOOK) {
+            self();
             webhookServer();
         } else {
             connect();
@@ -188,8 +220,10 @@ public final class QQBotClient implements Closeable {
         if (s == null) {
             synchronized (this) {
                 if (webhookServer == null) {
-                    webhookServer = new WebhookServer(config.webhookHost(), config.webhookPort())
-                            .start().mount(this);
+                    // only remembered once it actually bound, so a failed start leaves nothing to retry around
+                    WebhookServer bound = new WebhookServer(config.webhookHost(), config.webhookPort()).start();
+                    bound.mount(this);
+                    webhookServer = bound;
                     ownsWebhookServer = true;
                 }
                 s = webhookServer;
@@ -210,14 +244,20 @@ public final class QQBotClient implements Closeable {
         }
     }
 
-    /** Whether the inbound side is up now: the gateway socket connected, or a callback endpoint bound. */
+    /**
+     * Whether the inbound side is up for this bot. On a shared callback endpoint this is whether this bot's own
+     * route is still mounted there — the socket being open says nothing about this bot being usable.
+     */
     public boolean isOnline() {
         Gateway g = gateway;
         if (g != null && g.isConnected()) {
             return true;
         }
         WebhookServer s = webhookServer;
-        return s != null && s.isRunning();
+        if (s == null || !s.isRunning()) {
+            return false;
+        }
+        return ownsWebhookServer || s.paths().contains(config.webhookPath());
     }
 
     /**
@@ -259,6 +299,52 @@ public final class QQBotClient implements Closeable {
                     + timeoutMillis + "ms");
         }
         return g;
+    }
+
+    /**
+     * This bot's own profile: {@code GET /users/@me} once, then cached, because a bot's identity does not change
+     * under it. A failure is not cached, so a network problem at boot is not permanent — call it again, or
+     * {@link #start()} again.
+     *
+     * <p>{@link #start()} calls this before it binds anything when the transport is
+     * {@link BotConfig.Transport#WEBHOOK}, which is also the cheapest credential check there is: a wrong
+     * app id/secret pair fails here instead of on the first reply a user waited for.
+     */
+    public BotProfile self() {
+        BotProfile cached = selfProfile;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (this) {
+            if (selfProfile == null) {
+                BotProfile profile = api.me().getBotProfile();
+                if (profile == null || profile.id == null || profile.id.isBlank()) {
+                    throw new io.github.skiesworld.qqbot.error.QQBotException(
+                            "GET /users/@me answered without a bot id for app " + config.appId()
+                                    + "; the credentials do not identify a bot");
+                }
+                selfProfile = profile;
+                selfId = profile.id;
+                log.info("bot {} is {} (id={})", config.appId(), profile.username, profile.id);
+            }
+            return selfProfile;
+        }
+    }
+
+    /**
+     * This bot's own id as far as it already knows: the {@link #self()} cache, or the {@code user} the gateway's
+     * READY carried. Never makes a call and never blocks, so event-path code (gates, handlers) can compare
+     * against it; null until one of the two has answered.
+     */
+    public String selfId() {
+        return selfId;
+    }
+
+    /** Remember the identity READY carried, so a websocket bot needs no profile call to know itself. */
+    void cacheSelfId(String id) {
+        if (id != null && !id.isBlank()) {
+            selfId = id;
+        }
     }
 
     /** Escape hatch for any documented or newly added operation without waiting for an SDK release. */

@@ -7,6 +7,8 @@ import io.github.skiesworld.qqbot.event.QQMessageEvent;
 import io.github.skiesworld.qqbot.event.QQNoticeEvent;
 import io.github.skiesworld.qqbot.message.ReplyTarget;
 import io.github.skiesworld.qqbot.model.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +23,8 @@ import java.util.Set;
  * {@link Check} method.
  */
 public final class Permissions {
+
+    private static final Logger log = LoggerFactory.getLogger(Permissions.class);
 
     /** The events the platform only pushes when the bot itself was addressed. */
     private static final List<EventType> ADDRESSED = List.of(EventType.GROUP_AT_MESSAGE_CREATE,
@@ -117,19 +121,52 @@ public final class Permissions {
     }
 
     /**
-     * Only where the bot was addressed. Two ways that happens: the event the platform pushed because of the
-     * mention (the {@code *_AT_MESSAGE_CREATE} pair, and channel direct messages, which have nobody else to be
-     * for), or a message that carries a bot among its mentions — which is what an @ looks like in group-wide mode,
-     * where every group message arrives as {@code GROUP_MESSAGE_CREATE}.
+     * Only where the bot was addressed, read off the three things that can say so, in order of how much they can be
+     * trusted:
      *
-     * <p>In a group with several bots the second branch cannot tell them apart, so a command that must not answer
-     * another bot's mention should subscribe to {@code GROUP_AT_MESSAGE_CREATE} and leave this rule alone.
+     * <ol>
+     *   <li>the event the platform only pushes on a mention ({@code GROUP_AT_MESSAGE_CREATE},
+     *       {@code AT_MESSAGE_CREATE}) and channel direct messages, which have nobody else to be for;
+     *   <li>the bot's own id — {@link QQBotClient#selfId()}, cached from READY or {@code /users/@me} — appearing in
+     *       this message's {@code mentions};
+     *   <li>a bot among the {@code mentions}, which is what an @ looks like in group-wide mode when the id above
+     *       has nothing to match: the payload says a bot was named, not which one, so a group with several bots can
+     *       match here for a message meant for another.
+     * </ol>
+     *
+     * <p>Whichever branch answered is logged at debug, because the third one being reached at all is the signal to
+     * go and check whether the platform reuses the bot's id across scenes — that question is answered by observation,
+     * not by the docs.
      */
     public static final class ToMe implements Permission {
         @Override
         public boolean allows(QQEvent event, QQBotClient bot) {
-            return ADDRESSED.contains(event.type())
-                    || (event instanceof QQMessageEvent message && message.mentionedBot());
+            if (ADDRESSED.contains(event.type())) {
+                return true;
+            }
+            if (!(event instanceof QQMessageEvent message)) {
+                return false;
+            }
+            List<User> mentions = message.mentions();
+            if (mentions.isEmpty()) {
+                return false;
+            }
+            String selfId = bot == null ? null : bot.selfId();
+            if (selfId != null && mentions.stream().anyMatch(user -> isSelf(user, selfId))) {
+                log.debug("toMe: {} names this bot by id {}", event.name(), selfId);
+                return true;
+            }
+            if (message.mentionedBot()) {
+                log.debug("toMe: {} names a bot but not this bot's id ({}); answering on the bot flag alone."
+                        + " In a group with several bots this can be the wrong one.", event.name(), selfId);
+                return true;
+            }
+            return false;
+        }
+
+        private static boolean isSelf(User mentioned, String selfId) {
+            return selfId.equals(mentioned.id) || selfId.equals(mentioned.userOpenid)
+                    || selfId.equals(mentioned.memberOpenid);
         }
     }
 

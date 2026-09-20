@@ -93,6 +93,8 @@ try (WebhookServer endpoint = new WebhookServer("0.0.0.0", 8080).start()) {
 String body = bot.webhook().handle(rawBody, timestamp, signature, appid);
 ```
 
+回调模式没有任何别的网络调用能证明密钥是对的，所以 `start()` 先打一次 `GET /users/@me`：答不上来就抛 `ApiException`/`AuthException`，端口根本不会绑——错在启动阶段就暴露，而不是等用户等第一条回复。`bot.self()` 是这个答案（取一次，之后走缓存，失败不缓存所以可以再 `start()`），`bot.selfId()` 只读已知的 id、不发请求，因此可以在事件路径上用；网关模式下 READY 的 `d.user` 就把它填好了，连这一次调用都省了。
+
 ### 多个 bot：`Bots`
 
 一个进程跑几个账号时，注册表负责查找与生命周期，回调 socket 也只有一个：
@@ -108,6 +110,8 @@ bots.isOnline(appId);         // 是否已经在线，与「是否注册」是�
 bots.startAll();              // 按各自的 transport 拉起
 bots.close();                 // 逆序关掉每个 bot，再释放共享端点
 ```
+
+`startAll()` 会**试完所有 bot**：某个账号密钥错了不会连累别人，它自己不算启动成功、也不会在共享端口上留一条能收请求的路由，最后所有失败合并成一个异常抛出（消息里是失败的 app id，原因是 suppressed）。失败的 bot 还留在注册表里但 `isOnline()` 为 false，修好配置再 `start()` 一次就行——共享端点上的 bot 的在线状态看的是「我这条路由还在不在」，不是「socket 开没开」。
 
 同一个 app id 只接受一次——两个 bot 会把同一批事件各答一遍。挂在共享端点上的 bot 被 `close()` 时只摘掉自己那条路由，端口留给别人；注册表关的时候才真正释放 socket。这里故意**不提供**「一条消息发给所有 bot / 所有会话」的便捷方法：`getBots()` 已经在手上了，少一个看起来很顺手、但语义上等于「不查对象就把喇叭对准全部人」的入口。`READY` / `RESUMED` 也在总线上（`@On(EventType.READY)`），「上线后拉一次全量」这类逻辑因此可以写成事件处理器。
 
@@ -243,7 +247,7 @@ boolean groupAdmin(QQMessageEvent msg) {
 - 规则类也可以只写一个 `boolean check(...)`，参数与 handler 一样按类型注入（`check(QQNoticeEvent notice)` 就只会被通知事件问到）；没有这个方法就用 `allows(event, bot)`，lambda 走的是后者。
 - 门禁在**参数绑定之后**才被问：命令文本没匹配上时根本不会走到它。判定为假、门禁抛异常、参数绑不上，一律按「拒绝」处理并记日志——判不出来就不能放行。
 - 名字找不到、方法不返回 `boolean`、同名重载、类型无法实例化，都在注册期抛 `IllegalArgumentException`；被路由的方法必须返回 `void`（要返回判定就标 `@Check`）。
-- 角色只存在于群里 `author.member_role`（member < admin < owner）：`Permissions.GroupAdmin` 在单聊与通知事件上返回 false，因为那里根本没有角色这一说。`Permissions.ToMe` 认两种「说的是我」：平台只在被 @ 时推的那几种事件，以及全量群消息里 `mentions[]` 中带了个 `bot: true` 的消息。后者只说「被 @ 的是个机器人」，不说哪一个——群里同时有别的机器人时它会误命中，那种场景把命令订在 `GROUP_AT_MESSAGE_CREATE` 上，过滤是平台做的。
+- 角色只存在于群里 `author.member_role`（member < admin < owner）：`Permissions.GroupAdmin` 在单聊与通知事件上返回 false，因为那里根本没有角色这一说。`Permissions.ToMe` 按可信度依次看三件事：平台只在被 @ 时推的那几种事件；`bot.selfId()` 出现在这条消息的 `mentions[]` 里（比 `id`/`user_openid`/`member_openid` 三个格子）；最后才是「mentions 里有个 `bot: true`」。第三种只说「被 @ 的是个机器人」，不说哪一个，所以多 bot 群可能误命中——哪一档命中的都会打 debug，真群里 @ 一次就知道第二档到底有没有命中过。
 
 ## 并发与线程
 
@@ -482,11 +486,11 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 ## 测试
 
 ```bash
-./gradlew test           # 237 个离线测试
+./gradlew test           # 242 个离线测试
 ./gradlew build          # 编译 + 测试 + jar + sources + javadoc
 ```
 
-测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、无响应体操作的 `Void` 解码、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、路由表的穷举性与角色键、信封的取值与自应答（回复、审批、互动 ack）、`@On` 的事件推断与注册期报错、自定义参数类型的注入与「返回 null 即跳过」、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组/优先级/block、门禁的名字与类型两条路、审核结论的等待与超时、`Bots` 的查找/重复 id/共享端点、回调端点的真实 socket 往返（验签、opcode 13、405/400/401 与 ACK）。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
+测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、无响应体操作的 `Void` 解码、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、路由表的穷举性与角色键、信封的取值与自应答（回复、审批、互动 ack）、`@On` 的事件推断与注册期报错、自定义参数类型的注入与「返回 null 即跳过」、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组/优先级/block、门禁的名字与类型两条路、审核结论的等待与超时、`Bots` 的查找/重复 id/共享端点/一个坏账号不拖累别人、回调 bot 的启动期身份自检（凭证错就不绑端口、修好可再 start、共享端点上按路由判在线）、toMe 的三档归因、回调端点的真实 socket 往返（验签、opcode 13、405/400/401 与 ACK）。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
 
 ## 已知边界
 

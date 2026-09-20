@@ -1,6 +1,7 @@
 package io.github.skiesworld.qqbot;
 
 import io.github.skiesworld.qqbot.callback.WebhookServer;
+import io.github.skiesworld.qqbot.error.QQBotException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,13 +132,36 @@ public final class Bots implements Closeable {
         return bot != null && bot.isOnline();
     }
 
-    /** Bring every bot up the way its own {@link BotConfig#transport()} says. */
+    /**
+     * Bring every bot up the way its own {@link BotConfig#transport()} says.
+     *
+     * <p>Every bot is attempted, because one account with a bad key must not keep the others offline; a bot whose
+     * start fails is simply not online — nothing it bound was left half-open, so calling
+     * {@link QQBotClient#start()} again later can succeed. When any of them failed, the attempt still finishes and
+     * the failures come back as one exception naming each app id.
+     */
     public Bots startAll() throws IOException {
+        Map<String, Exception> failed = new LinkedHashMap<>();
         for (QQBotClient bot : new ArrayList<>(byAppId.values())) {
-            if (bot.config().transport() == BotConfig.Transport.WEBHOOK && endpointPort >= 0) {
-                mount(bot);
+            String appId = bot.config().appId();
+            try {
+                if (bot.config().transport() == BotConfig.Transport.WEBHOOK && endpointPort >= 0) {
+                    mount(bot);
+                }
+                bot.start();
+            } catch (IOException | RuntimeException e) {
+                log.error("bot {} could not start; leaving it offline", appId, e);
+                if (endpoint != null) {
+                    endpoint.unmount(bot.config().webhookPath());
+                }
+                failed.put(appId, e);
             }
-            bot.start();
+        }
+        if (!failed.isEmpty()) {
+            QQBotException failure = new QQBotException("these bots did not start: " + failed.keySet()
+                    + "; the rest are up, and each of these can be started again");
+            failed.values().forEach(failure::addSuppressed);
+            throw failure;
         }
         return this;
     }

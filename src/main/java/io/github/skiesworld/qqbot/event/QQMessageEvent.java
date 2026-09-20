@@ -6,6 +6,7 @@ import io.github.skiesworld.qqbot.message.MessageSegments;
 import io.github.skiesworld.qqbot.model.User;
 import io.github.skiesworld.qqbot.util.Json;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,6 +52,25 @@ public class QQMessageEvent extends QQEvent {
     }
 
     /**
+     * The users this message names in {@code mentions} — the group and channel events carry it, and it is the
+     * list to compare against {@link io.github.skiesworld.qqbot.QQBotClient#selfId()} when a bot has to tell
+     * whether a message was meant for it. Empty when the payload reports none.
+     */
+    public List<User> mentions() {
+        JsonElement array = rawObject().get("mentions");
+        if (array == null || !array.isJsonArray()) {
+            return List.of();
+        }
+        List<User> mentioned = new ArrayList<>();
+        for (JsonElement element : array.getAsJsonArray()) {
+            if (element.isJsonObject()) {
+                mentioned.add(Json.GSON.fromJson(element, User.class));
+            }
+        }
+        return List.copyOf(mentioned);
+    }
+
+    /**
      * Whether one of this message's {@code mentions} is a bot, which in group-wide mode is how a message addressed
      * to the bot shows up: the platform pushes every group message to that event, mention or not.
      *
@@ -59,7 +79,7 @@ public class QQMessageEvent extends QQEvent {
      * its own bot listens to {@code GROUP_AT_MESSAGE_CREATE} instead — the platform did the filtering there.
      */
     public boolean mentionedBot() {
-        return segments().mentions().stream().anyMatch(user -> Boolean.TRUE.equals(user.bot));
+        return mentions().stream().anyMatch(user -> Boolean.TRUE.equals(user.bot));
     }
 
     /** Answer in the conversation this message came from, with the reply fields and {@code msg_seq} filled in. */
