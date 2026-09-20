@@ -194,6 +194,55 @@ class HandlerRegistryTest {
         assertTrue(error.getMessage().contains("needs a client"), error.getMessage());
     }
 
+    @Test
+    void aPluginCanOpenTheBinderToItsOwnParameterType() {
+        handlers.bind(Roster.class, event -> new Roster(event.conversationId()));
+        UsesRoster handler = new UsesRoster();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals("U1", handler.roster.conversation);
+    }
+
+    @Test
+    void aResolverReturningNullSkipsTheRoute() {
+        handlers.bind(Roster.class, event -> null);
+        UsesRoster handler = new UsesRoster();
+        handlers.register(handler);
+
+        dispatch("C2C_MESSAGE_CREATE", MESSAGE);
+
+        assertEquals(null, handler.roster, "null from the resolver means not this dispatch");
+    }
+
+    @Test
+    void theTypesTheEngineFillsCannotBeReplaced() {
+        assertThrows(IllegalArgumentException.class,
+                () -> handlers.bind(QQMessageEvent.class, event -> null));
+        assertThrows(IllegalArgumentException.class,
+                () -> handlers.bind(OnContext.class, event -> null));
+    }
+
+    static class Roster {
+
+        private final String conversation;
+
+        Roster(String conversation) {
+            this.conversation = conversation;
+        }
+    }
+
+    static class UsesRoster {
+
+        Roster roster;
+
+        @On(EventType.C2C_MESSAGE_CREATE)
+        public void on(Roster roster) {
+            this.roster = roster;
+        }
+    }
+
     class Messages {
 
         final List<String> messages = new java.util.ArrayList<>();

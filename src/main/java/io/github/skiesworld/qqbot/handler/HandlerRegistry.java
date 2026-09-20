@@ -67,6 +67,7 @@ public final class HandlerRegistry {
     private final QQBotClient client;
     private final Map<Class<? extends Permission>, Supplier<? extends Permission>> permissionFactories =
             new ConcurrentHashMap<>();
+    private final Map<Class<?>, Function<QQEvent, ?>> bindings = new ConcurrentHashMap<>();
     private final List<CommandMatcher> matchers = new CopyOnWriteArrayList<>();
     private volatile List<String> prefixes = List.of("");
 
@@ -100,6 +101,25 @@ public final class HandlerRegistry {
     public HandlerRegistry permission(Class<? extends Permission> type, Supplier<? extends Permission> factory) {
         permissionFactories.put(Objects.requireNonNull(type, "type"),
                 Objects.requireNonNull(factory, "factory"));
+        return this;
+    }
+
+    /**
+     * Teach the binder one more parameter type, so a plugin's own object can be asked for by name the way an
+     * envelope or a payload can: {@code bot.handlers().bind(Player.class, event -> roster.playerOf(event))}.
+     * A resolver returning null skips the route the same way an unbindable payload does.
+     *
+     * <p>Event envelopes, {@link OnContext} and the built-in types cannot be replaced — a handler reading
+     * {@code QQMessageEvent} has to get the envelope the bus built, not something a plugin invented for it.
+     */
+    public <T> HandlerRegistry bind(Class<T> type, Function<QQEvent, T> resolver) {
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(resolver, "resolver");
+        if (type.isPrimitive() || type.isArray() || type == Object.class
+                || QQEvent.class.isAssignableFrom(type) || type == OnContext.class) {
+            throw new IllegalArgumentException(type.getName() + " is filled by the engine and cannot be rebound");
+        }
+        bindings.put(type, resolver);
         return this;
     }
 
@@ -480,7 +500,8 @@ public final class HandlerRegistry {
                 binders[i] = context;
                 continue;
             }
-            binders[i] = binderFor(paramType, owner, method, i);
+            Function<QQEvent, ?> custom = bindings.get(paramType);
+            binders[i] = custom != null ? custom : binderFor(paramType, owner, method, i);
         }
         return binders;
     }

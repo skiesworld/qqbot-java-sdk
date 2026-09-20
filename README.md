@@ -179,6 +179,8 @@ bot.handlers().register(new ChatHandlers());      // 就这一行
 
 跨 jar 提供的 handler 用 `bot.handlers().registerDiscovered()`：类实现 `BotHandler` 并带上 `@BotHandlers`，本 SDK 自带的注解处理器在编译期生成 `META-INF/services` 清单（JDK 21+ 要显式开启注解处理：`-proc:full` 或 `--processor-path`）。没有清单也不影响上面的 `register(...)`。
 
+自己应用里的对象也想按类型注入，就把它挂进同一个绑定器，不需要容器：`bot.handlers().bind(Player.class, event -> roster.playerOf(event))`——返回 null 等于「这条 dispatch 不该走这个方法」，跳过并记 debug 日志。信封、`OnContext` 这些引擎自己填的类型不允许被替换。
+
 ### 消息段与出站构造
 
 `MessageSegments` 把收到的消息读成段序列，`MessageBuilder` 把要发的内容降级到各场景真正支持的字段：
@@ -480,11 +482,11 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 ## 测试
 
 ```bash
-./gradlew test           # 235 个离线测试
+./gradlew test           # 238 个离线测试
 ./gradlew build          # 编译 + 测试 + jar + sources + javadoc
 ```
 
-测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、无响应体操作的 `Void` 解码、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、路由表的穷举性与角色键、信封的取值与自应答（回复、审批、互动 ack）、`@On` 的事件推断与注册期报错、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组/优先级/block、门禁的名字与类型两条路、审核结论的等待与超时、`Bots` 的查找/重复 id/共享端点、回调端点的真实 socket 往返（验签、opcode 13、405/400/401 与 ACK）。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
+测试全部离线（MockWebServer 打桩），无需真实凭据：REST 鉴权头与 `err_code` 语义、429/5xx 退避与 `Retry-After`、401 换证、GET 请求体展开为查询参数、multipart 与预签名分片 PUT、无响应体操作的 `Void` 解码、access_token 缓存/边际刷新/单飞、网关 IDENTIFY→READY→心跳→RESUME、op7/op9、4914/4915 致命码停止重连、Webhook 验签与地址校验、事件反序列化与 `Endpoint` 覆盖对账、路由表的穷举性与角色键、信封的取值与自应答（回复、审批、互动 ack）、`@On` 的事件推断与注册期报错、自定义参数类型的注入与「返回 null 即跳过」、消息段解析与三种出站降级、各场景回复路径与 `msg_seq` 递增、命令前缀/别名/正则捕获组/优先级/block、门禁的名字与类型两条路、审核结论的等待与超时、`Bots` 的查找/重复 id/共享端点、回调端点的真实 socket 往返（验签、opcode 13、405/400/401 与 ACK）。注解处理器用 `ToolProvider.getSystemJavaCompiler()` 现场编译样例源码，断言生成的 `META-INF/services` 清单能被 `ServiceLoader` 读回并真正派发事件。
 
 ## 已知边界
 
