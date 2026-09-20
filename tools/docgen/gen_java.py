@@ -50,6 +50,7 @@ MODEL_PKG = 'io.github.skiesworld.qqbot.model'
 REQUEST_PKG = 'io.github.skiesworld.qqbot.model.request'
 CONSTANT_PKG = 'io.github.skiesworld.qqbot.model.constant'
 EVENT_PKG = 'io.github.skiesworld.qqbot.event.model'
+EVENT_ROOT_PKG = 'io.github.skiesworld.qqbot.event'
 API_PKG = 'io.github.skiesworld.qqbot.api'
 ENDPOINT_PKG = 'io.github.skiesworld.qqbot.api.endpoint'
 
@@ -124,6 +125,19 @@ API_DOCS = {
 
 class Error(Exception):
     """Fatal generation problem: better to write nothing than a half known SDK."""
+
+
+# The four envelopes a dispatch can be built into, and the javadoc each one earns. Order is the order of the
+# generated enum, so PLAIN — the row a name absent from the table gets — reads as the last resort.
+EVENT_ENVELOPES = collections.OrderedDict((
+    ('MESSAGE', 'Carries message text and an author, so it reads as one turn in a conversation.'),
+    ('NOTICE', 'Something happened somewhere: no text here, and no answer owed to it.'),
+    ('REQUEST', 'Something happened that the bot owes an answer to, and the platform stops waiting.'),
+    ('PLAIN', 'Session lifecycle plus anything this table does not place: the bare envelope.'),
+))
+ENVELOPES = tuple(EVENT_ENVELOPES)
+
+RoutingRow = collections.namedtuple('RoutingRow', 'name envelope actor subject doc')
 
 
 # --------------------------------------------------------------------------------------
@@ -519,6 +533,47 @@ def build_events(spec, registry):
     return out
 
 
+def role_keys(entry, role):
+    raw = entry.get(role) or []
+    if isinstance(raw, str):
+        raw = [raw]
+    for key in raw:
+        if not LOWER_IDENT_RE.match(key):
+            raise Error('eventRoles %s: %s must name one payload key, got %r' % (entry.get('_name'), role, key))
+    return list(dict.fromkeys(raw))
+
+
+def build_event_roles(naming, crawled):
+    """naming.json's eventRoles, checked against the crawled event names.
+
+    Every event the gateway can push is listed here rather than derived: the envelope a dispatch is built into
+    is what a handler's parameter type means, so it has be a decided fact, not a prefix match.
+    """
+    roles = naming.get('eventRoles')
+    if not roles:
+        raise Error('naming.json must curate eventRoles: the envelope of each event plus its actor/subject keys')
+    rows = []
+    for name, entry in roles.items():
+        if name.startswith('_'):
+            continue
+        if not UPPER_RE.match(name):
+            raise Error('eventRoles: %r is not an event name' % name)
+        unknown = set(entry) - set(('envelope', 'actor', 'subject', 'doc'))
+        if unknown:
+            raise Error('eventRoles %s: unknown keys %s' % (name, ', '.join(sorted(unknown))))
+        envelope = entry.get('envelope', 'PLAIN')
+        if envelope not in ENVELOPES:
+            raise Error('eventRoles %s: envelope must be one of %s, got %r'
+                        % (name, ' '.join(ENVELOPES), envelope))
+        entry = dict(entry, _name=name)
+        rows.append(RoutingRow(name, envelope, role_keys(entry, 'actor'), role_keys(entry, 'subject'),
+                               (entry.get('doc') or '').strip()))
+    missing = sorted(k.wire for k in crawled if k.wire not in roles)
+    if missing:
+        raise Error('eventRoles has no row for the crawled events: %s' % ', '.join(missing))
+    return rows
+
+
 # --------------------------------------------------------------------------------------
 # operations
 # --------------------------------------------------------------------------------------
@@ -834,6 +889,104 @@ def emit_constant(java, doc, values):
     return write_java(CONSTANT_PKG, java, ''.join(lines))
 
 
+EVENT_ROVALS_DOC = (
+    'Routing facts docgen writes from naming.json\u0027s eventRoles: the envelope each event name is built into, '
+    'and the payload keys that name the people taking part in it. A handler parameter type means one of these '
+    'envelopes, so adding an event is a row here rather than a guess somewhere in the bus.')
+
+
+def emit_event_roles(rows):
+    out = ['package %s;\n\n' % EVENT_ROOT_PKG]
+    out.append(imports_block(['java.util.ArrayList', 'java.util.Collections', 'java.util.LinkedHashMap',
+                              'java.util.List', 'java.util.Map'], EVENT_ROOT_PKG))
+    out.append(docstring(EVENT_ROVALS_DOC))
+    out.append('public final class EventRouting {\n')
+    out.append('\n    /** The envelope a dispatch is built into. */\n    public enum Envelope {\n')
+    for envelope, doc in EVENT_ENVELOPES.items():
+        out.append('\n' + docstring(doc, '        '))
+        out.append('        %s,\n' % envelope)
+    out = ''.join(out).rsplit(',\n', 1)[0] + '\n    }\n'
+    out += '\n' + docstring('One event: its envelope plus the payload keys that name the people taking part.')
+    out += '''    public static final class Row {
+
+        static final Row UNKNOWN = new Row("UNKNOWN", Envelope.PLAIN, List.of(), List.of());
+
+        private final String name;
+        private final Envelope envelope;
+        private final List<String> actorKeys;
+        private final List<String> subjectKeys;
+
+        Row(String name, Envelope envelope, List<String> actorKeys, List<String> subjectKeys) {
+            this.name = name;
+            this.envelope = envelope;
+            this.actorKeys = actorKeys;
+            this.subjectKeys = subjectKeys;
+        }
+
+        /** The {@code t} value of this row, or {@code UNKNOWN} for a name the table does not place. */
+        public String name() {
+            return name;
+        }
+
+        public Envelope envelope() {
+            return envelope;
+        }
+
+        /** Who set the event off, by payload key in preference order; empty when no key names one. */
+        public List<String> actorKeys() {
+            return actorKeys;
+        }
+
+        /** Who the event happened to, by payload key in preference order; empty when no key names one. */
+        public List<String> subjectKeys() {
+            return subjectKeys;
+        }
+    }
+
+    private static final Map<String, Row> BY_NAME = rows();
+
+    private static Map<String, Row> rows() {
+        Map<String, Row> rows = new LinkedHashMap<>();
+'''
+    for row in rows:
+        doc = (' ' + row.doc) if row.doc else ''
+        out += '        // %s%s\n' % (row.envelope, doc)
+        out += '        rows.put("%s", new Row("%s", Envelope.%s, %s, %s));\n' % (
+            row.name, row.name, row.envelope, java_list(row.actor), java_list(row.subject))
+    out += '''        return Collections.unmodifiableMap(rows);
+    }
+
+    /** {@code eventName}'s row; a {@link Envelope#PLAIN} row for names newer than this table. */
+    public static Row of(String eventName) {
+        return eventName == null ? Row.UNKNOWN : BY_NAME.getOrDefault(eventName, Row.UNKNOWN);
+    }
+
+    /** The modelled events built into {@code envelope}, in the order this table lists them. */
+    public static List<EventType> eventTypes(Envelope envelope) {
+        List<EventType> types = new ArrayList<>();
+        for (Row row : BY_NAME.values()) {
+            if (row.envelope == envelope) {
+                EventType type = EventType.from(row.name);
+                if (type != EventType.UNKNOWN) {
+                    types.add(type);
+                }
+            }
+        }
+        return List.copyOf(types);
+    }
+
+    private EventRouting() {
+    }
+}
+'''
+    return write_java(EVENT_ROOT_PKG, 'EventRouting', out)
+
+
+def java_list(keys):
+    return 'List.of(%s)' % ', '.join('"%s"' % key for key in keys) if keys else 'List.of()'
+
+
+
 def params_steps(op):
     steps = ['.pathValue("%s", %s)' % (name, java_field(name)) for name in op.path_names]
     steps += ['.queryValue("%s", %s)' % (wire, name) for wire, name in op.queries]
@@ -957,6 +1110,7 @@ def main():
     constants = build_constants(naming, spec, registry)
     build_shared_models(spec, naming, registry)
     events = build_events(spec, registry)
+    roles = build_event_roles(naming, events)
     operations = build_operations(spec, naming, keep)
     dtos = DtoIndex(registry)
     for op in operations:
@@ -989,6 +1143,8 @@ def main():
     written += 1
     emit_facade(naming['apiGroups'])
     written += 1
+    emit_event_roles(roles)
+    written += 1
 
     counts = collections.Counter(op.group for op in operations)
     shared = [k for k in buckets[MODEL_PKG] if not k.generated]
@@ -1002,6 +1158,9 @@ def main():
           % (len(constants), ' '.join(java for java, _, _ in constants)))
     print('  event payloads      : %d  %s'
           % (len(buckets[EVENT_PKG]), ' '.join(k.java for k in buckets[EVENT_PKG])))
+    print('  routing rows        : %d  %s'
+          % (len(roles), ' '.join('%s=%s' % (env, sum(1 for r in roles if r.envelope == env))
+                                  for env in ENVELOPES)))
     print('  api classes         : %d  %s' % (len(naming['apiGroups']) + 2,
                                               'Api Endpoints ' + ' '.join(naming['apiGroups'].values())))
     print('  operations          : %d' % len(operations))
