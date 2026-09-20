@@ -13,11 +13,11 @@
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.3")
+    implementation("io.github.skiesworld:qqbot-java-sdk:0.0.4")
 }
 ```
 
-`0.0.4` 起是本文其余部分描述的 API：`@BotEvent` + `@Command` 合成一个 `@On`，事件多了信封类型，bot 管理进了 `Bots`。0.0.3 的坐标不会被撤回，旧 API 在 dev 分支上已不存在。
+从 0.0.3 迁移只有三处：`@BotEvent` 与 `@Command` 合成一个 `@On`（命令写 `command = "签到"`）；`bot.commands()` 没有了，前缀与 `describe()` 在 `bot.handlers()` 上，`CommandContext` 改名收窄成 `OnContext`；`QQEvent.targetId()` 叫 `conversationId()`。其余是新增：事件信封、`Bots`、`bot.audits()`、`bot.handlers().bind(...)`。
 
 从源码构建：
 
