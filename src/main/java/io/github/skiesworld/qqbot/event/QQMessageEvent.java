@@ -49,6 +49,19 @@ public class QQMessageEvent extends QQEvent {
     public MessageSegments segments() {
         return MessageSegments.of(this);
     }
+
+    /**
+     * Whether one of this message's {@code mentions} is a bot, which in group-wide mode is how a message addressed
+     * to the bot shows up: the platform pushes every group message to that event, mention or not.
+     *
+     * <p>The {@code User} a mention carries says <em>that</em> participant is a bot, not which one, so in a group
+     * with several bots this can be true for a message meant for a different bot. A command that should only hear
+     * its own bot listens to {@code GROUP_AT_MESSAGE_CREATE} instead — the platform did the filtering there.
+     */
+    public boolean mentionedBot() {
+        return segments().mentions().stream().anyMatch(user -> Boolean.TRUE.equals(user.bot));
+    }
+
     /** Answer in the conversation this message came from, with the reply fields and {@code msg_seq} filled in. */
     public void reply(String text) {
         reply(MessageBuilder.of(text));

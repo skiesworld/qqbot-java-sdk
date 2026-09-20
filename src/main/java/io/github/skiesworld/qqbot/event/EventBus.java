@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,7 @@ public final class EventBus {
     private final Map<EventType, List<Route>> typed = new ConcurrentHashMap<>();
     private final Map<String, List<Route>> byName = new ConcurrentHashMap<>();
     private final List<Route> wildcard = new CopyOnWriteArrayList<>();
-    private final Map<String, Lane> lanes = new ConcurrentHashMap<>();
+    private final Map<String, Lane> lanes = new HashMap<>();
     private final AtomicInteger routes = new AtomicInteger();
     private final Executor executor;
     private volatile Outbound outbound;
@@ -170,7 +171,9 @@ public final class EventBus {
         if (candidates.isEmpty()) {
             return;
         }
-        executor.execute(() -> chain(event, candidates));
+        // the chain itself runs on the conversation's strip, so two dispatches of one conversation cannot
+        // interleave and hand their routes over out of order
+        submit(conversationStrip(event), () -> chain(event, candidates));
     }
 
     /** The chain lane walks the routes in order, handing each one to its own lane. */
@@ -211,28 +214,35 @@ public final class EventBus {
         return "r" + route.sequence + '@' + (conversation == null ? event.name() : conversation);
     }
 
+    /** One conversation's arrivals, in the order they came: the chain of each is handed over from here. */
+    private static String conversationStrip(QQEvent event) {
+        String conversation = event.conversationId();
+        return "c@" + (conversation == null ? event.name() : conversation);
+    }
+
     /** Run {@code task} after the earlier tasks of the same strip, on the configured executor. */
     private void submit(String strip, Runnable task) {
-        Lane lane = lanes.compute(strip, (key, existing) -> existing == null ? new Lane() : existing);
+        Lane lane;
         boolean start;
-        synchronized (lane) {
-            lane.queued.add(task);
+        synchronized (lanes) {
+            lane = lanes.computeIfAbsent(strip, Lane::new);
+            lane.queued.addLast(task);
             start = !lane.running;
             lane.running = true;
         }
         if (start) {
-            executor.execute(() -> drain(strip, lane));
+            executor.execute(() -> drain(lane));
         }
     }
 
-    private void drain(String strip, Lane lane) {
+    private void drain(Lane lane) {
         while (true) {
             Runnable task;
-            synchronized (lane) {
+            synchronized (lanes) {
                 task = lane.queued.pollFirst();
                 if (task == null) {
                     lane.running = false;
-                    lanes.remove(strip, lane);
+                    lanes.remove(lane.key, lane);
                     return;
                 }
             }
@@ -240,9 +250,19 @@ public final class EventBus {
         }
     }
 
+    /**
+     * One strip's pending tasks and whether an executor thread is already working through them. Everything is
+     * touched under the {@code lanes} monitor, so a strip can never be split across two live lanes: the order
+     * events arrived in is the order their tasks run in.
+     */
     private static final class Lane {
+        private final String key;
         private final ArrayDeque<Runnable> queued = new ArrayDeque<>();
         private boolean running;
+
+        Lane(String key) {
+            this.key = key;
+        }
     }
 
     private static final class Route {

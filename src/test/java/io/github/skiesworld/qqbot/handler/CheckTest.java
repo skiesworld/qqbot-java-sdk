@@ -96,15 +96,23 @@ class CheckTest {
     }
 
     @Test
-    void toMeOnlyAnswersWhereThePlatformAddressedTheBot() {
+    void toMeAnswersTheAddressedEventsAndAnAtBotMentionInGroupWideMode() {
         Addressed handler = new Addressed();
         handlers.register(handler);
 
         groupMessage("M1", "member", "在吗");
-        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, "GROUP_MESSAGE_CREATE",
-                Json.parseLenient("{\"group_openid\":\"G1\",\"content\":\"闲聊\"}"), bot.events().outbound()));
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"闲聊\","
+                + "\"author\":{\"member_openid\":\"M1\"}}");
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"@别人 你好\","
+                + "\"author\":{\"member_openid\":\"M1\"},\"mentions\":[{\"user_openid\":\"H1\",\"bot\":false}]}");
+        dispatch("GROUP_MESSAGE_CREATE", "{\"group_openid\":\"G1\",\"content\":\"@机器人 你好\","
+                + "\"author\":{\"member_openid\":\"M1\"},\"mentions\":[{\"user_openid\":\"B1\",\"bot\":true}]}");
 
-        assertEquals(List.of("在吗"), handler.heard);
+        assertEquals(List.of("在吗", "全量:@机器人 你好"), handler.heard);
+    }
+
+    private void dispatch(String name, String payload) {
+        bus.dispatch(EventEnvelopes.of("E1", 0, 1L, name, Json.parseLenient(payload), bot.events().outbound()));
     }
 
     @Test
@@ -253,6 +261,12 @@ class CheckTest {
         @Check(type = Permissions.ToMe.class)
         public void on(QQMessageEvent msg) {
             heard.add(msg.content());
+        }
+
+        @On(EventType.GROUP_MESSAGE_CREATE)
+        @Check(type = Permissions.ToMe.class)
+        public void onGroupWide(QQMessageEvent msg) {
+            heard.add("全量:" + msg.content());
         }
     }
 

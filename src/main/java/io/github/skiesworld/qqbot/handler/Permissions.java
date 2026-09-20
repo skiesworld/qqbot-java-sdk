@@ -117,13 +117,19 @@ public final class Permissions {
     }
 
     /**
-     * Only where the platform addressed the bot: the mention events, and the channel direct messages, which have
-     * nobody else to be for. Anywhere else the answer is no, because the bot was not being spoken to.
+     * Only where the bot was addressed. Two ways that happens: the event the platform pushed because of the
+     * mention (the {@code *_AT_MESSAGE_CREATE} pair, and channel direct messages, which have nobody else to be
+     * for), or a message that carries a bot among its mentions — which is what an @ looks like in group-wide mode,
+     * where every group message arrives as {@code GROUP_MESSAGE_CREATE}.
+     *
+     * <p>In a group with several bots the second branch cannot tell them apart, so a command that must not answer
+     * another bot's mention should subscribe to {@code GROUP_AT_MESSAGE_CREATE} and leave this rule alone.
      */
     public static final class ToMe implements Permission {
         @Override
         public boolean allows(QQEvent event, QQBotClient bot) {
-            return ADDRESSED.contains(event.type());
+            return ADDRESSED.contains(event.type())
+                    || (event instanceof QQMessageEvent message && message.mentionedBot());
         }
     }
 

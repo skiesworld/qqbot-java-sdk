@@ -243,7 +243,7 @@ boolean groupAdmin(QQMessageEvent msg) {
 - 规则类也可以只写一个 `boolean check(...)`，参数与 handler 一样按类型注入（`check(QQNoticeEvent notice)` 就只会被通知事件问到）；没有这个方法就用 `allows(event, bot)`，lambda 走的是后者。
 - 门禁在**参数绑定之后**才被问：命令文本没匹配上时根本不会走到它。判定为假、门禁抛异常、参数绑不上，一律按「拒绝」处理并记日志——判不出来就不能放行。
 - 名字找不到、方法不返回 `boolean`、同名重载、类型无法实例化，都在注册期抛 `IllegalArgumentException`；被路由的方法必须返回 `void`（要返回判定就标 `@Check`）。
-- 角色只存在于群里 `author.member_role`（member < admin < owner）：`Permissions.GroupAdmin` 在单聊与通知事件上返回 false，因为那里没有角色可 honour。
+- 角色只存在于群里 `author.member_role`（member < admin < owner）：`Permissions.GroupAdmin` 在单聊与通知事件上返回 false，因为那里根本没有角色这一说。`Permissions.ToMe` 认两种「说的是我」：平台只在被 @ 时推的那几种事件，以及全量群消息里 `mentions[]` 中带了个 `bot: true` 的消息。后者只说「被 @ 的是个机器人」，不说哪一个——群里同时有别的机器人时它会误命中，那种场景把命令订在 `GROUP_AT_MESSAGE_CREATE` 上，过滤是平台做的。
 
 ## 并发与线程
 
@@ -499,6 +499,7 @@ export QQ_APP_ID=... QQ_APP_SECRET=...      # 或 QQ_ACCESS_TOKEN=... 自带凭�
 - 内置回调端点只说 HTTP：平台的回调地址只接受 80/443/8080/8443，要 HTTPS 请让反向代理终结 TLS 后转发到本端点（或直接挂你自己的 Web 框架，用 `bot.webhook()`）。回调路径必须与后台登记的一致，多 bot 共用一个端口时记得每条路由分别是 `/qq/{appId}`。
 - `QQMessageEvent` 之外没有「发送者」这一个概念：通知事件的 payload 用六七个不同键名指人（`openid`、`op_member_openid`、`member_openid`、`invited_by`…），而且 `GUILD_*` / `CHANNEL_*` / `MESSAGE_REACTION_*` 报的是老的数值 id，所以 `actor()` / `subject()` 对这些事件返回空，需要的人请从 `data()` 的具名字段读，别把两种 id 混进同一张白名单。
 - 事件模型覆盖官方给出载荷结构的 22 个事件，以及文档写明「内容为 Message / MessageAudited / MessageReaction 对象」的频道事件（`AT_MESSAGE_CREATE`、`MESSAGE_CREATE`、`DIRECT_MESSAGE_CREATE`、`MESSAGE_AUDIT_*`、`MESSAGE_REACTION_*`）。`GUILD_MEMBER_*`、`FORUM_*`、`AUDIO_*`、`MESSAGE_DELETE` 等官方只在 Intents 表里列出名字、未给事件体结构，SDK 仍会投递（信封与 `conversationId()` 照常工作），`data()` 返回 null，请用 `event.raw()` / `onName(...)` 读取，不要假设字段。要补齐这些模型，是再抓一次文档页的事，不是手写。
+- 群全量模式与 @ 事件的关系官方只写了「各字段含义一致」，**没写**开了「接收所有消息」之后一条 @ 机器人的消息是只推 `GROUP_MESSAGE_CREATE` 还是两种事件各推一次。所以别把同一个命令挂在两种事件上（各答一遍的风险在平台侧），要覆盖全部群消息就只订全量那条、用 `mentionedBot()` 判断是不是说给自己听。SDK 不做入站 `msg_id` 去重：同一条消息被重推时路由会照样各跑一次，这是平台写明会发生的事（`GROUP_AT_MESSAGE_CREATE` 页原文要求开发者结合 `msg_seq` 去重）。
 - payload 参数只接受该事件自己的模型类（或其父类）：字段名碰巧对得上的自造类会被跳过并记 debug 日志，而不是静默填出一个半空的对象。
 - 路由表（`eventRoles`）为 `EventType` 里每个名字都写了一行，`EventRoutingTest` 双向对账；官方新增名字时，缺行会在 CI 里暴露，而不是让那条事件静默落进「不是消息也不是通知」。
 
