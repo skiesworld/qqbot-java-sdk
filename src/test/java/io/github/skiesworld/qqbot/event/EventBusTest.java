@@ -142,12 +142,15 @@ class EventBusTest {
         ExecutorService pool = Executors.newFixedThreadPool(4);
         try {
             EventBus bus = new EventBus(pool);
+            CountDownLatch started = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
             CountDownLatch done = new CountDownLatch(3);
             bus.on(EventType.GROUP_MESSAGE_CREATE, event -> {
                 String group = event.conversationId();
                 String text = event.rawObject().get("content").getAsString();
                 if ("slow".equals(text)) {
-                    await(new CountDownLatch(1));
+                    started.countDown();
+                    await(release);
                 }
                 seen.add(group + ':' + text);
                 done.countDown();
@@ -155,8 +158,10 @@ class EventBusTest {
             bus.dispatch(groupMessage("G1", "slow"));
             bus.dispatch(groupMessage("G1", "second"));
             bus.dispatch(groupMessage("G2", "other"));
+            assertTrue(started.await(20, TimeUnit.SECONDS), "the first dispatch is being held up");
+            release.countDown();
 
-            assertTrue(done.await(5, TimeUnit.SECONDS), "all three finished: " + seen);
+            assertTrue(done.await(20, TimeUnit.SECONDS), "all three finished: " + seen);
             assertTrue(seen.indexOf("G1:slow") < seen.indexOf("G1:second"),
                     "the two dispatches of one conversation finished in arrival order: " + seen);
             assertEquals(3, seen.size());
@@ -174,7 +179,7 @@ class EventBusTest {
 
     private static void await(CountDownLatch latch) {
         try {
-            latch.await(2, TimeUnit.SECONDS);
+            latch.await(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
