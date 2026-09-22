@@ -1,6 +1,7 @@
 package io.github.skiesworld.qqbot.message;
 
 import io.github.skiesworld.qqbot.event.QQEvent;
+import io.github.skiesworld.qqbot.event.QQMessageEvent;
 import io.github.skiesworld.qqbot.model.Keyboard;
 import io.github.skiesworld.qqbot.model.MediaInfo;
 import io.github.skiesworld.qqbot.model.MessageArk;
@@ -10,8 +11,6 @@ import io.github.skiesworld.qqbot.model.request.SendC2CMessageRequest;
 import io.github.skiesworld.qqbot.model.request.SendChannelMessageRequest;
 import io.github.skiesworld.qqbot.model.request.SendGroupMessageRequest;
 import io.github.skiesworld.qqbot.util.Strings;
-
-import com.google.gson.JsonElement;
 
 import java.util.Objects;
 
@@ -100,12 +99,12 @@ public final class MessageBuilder {
      * Use {@link #replyToEvent(QQEvent)} when the event id is the one that belongs in the request.
      */
     public MessageBuilder replyTo(QQEvent event) {
-        JsonElement id = event.rawObject().get("id");
-        if (id == null || id.isJsonNull() || !id.isJsonPrimitive()) {
-            throw new IllegalArgumentException("this event carries no message id (payload id): " + event.name()
-                    + " — use replyToEvent for dispatches that answer an event id");
+        if (!(event instanceof QQMessageEvent message)) {
+            throw new IllegalArgumentException("replyTo answers a message, but " + event.name()
+                    + " is not a message event — its payload id is an event id, not a message id."
+                    + " Use replyToEvent for dispatches that answer an event id");
         }
-        return replyTo(id.getAsString());
+        return replyTo(message.messageId());
     }
 
     /** Answer an event by id, for interactions and other non-message dispatches. */

@@ -5,6 +5,7 @@ import io.github.skiesworld.qqbot.BotConfig;
 import io.github.skiesworld.qqbot.QQBotClient;
 import io.github.skiesworld.qqbot.event.EventType;
 import io.github.skiesworld.qqbot.event.QQEvent;
+import io.github.skiesworld.qqbot.event.QQMessageEvent;
 import io.github.skiesworld.qqbot.util.Json;
 import io.github.skiesworld.qqbot.websocket.Intent;
 import okhttp3.mockwebserver.MockResponse;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,9 +49,13 @@ class ReplyTargetTest {
         server.close();
     }
 
+    /** 造的和真实工厂（EventEnvelopes）一样：消息类型给 QQMessageEvent，其余给 QQEvent。 */
     private static QQEvent event(String name, String json) {
         JsonObject d = json == null ? null : Json.parseLenient(json).getAsJsonObject();
-        return new QQEvent("EVENT1", 0, 1L, name, EventType.from(name), d);
+        EventType type = EventType.from(name);
+        return QQMessageEvent.eventTypes().contains(type)
+                ? new QQMessageEvent("EVENT1", 0, 1L, name, type, d, null)
+                : new QQEvent("EVENT1", 0, 1L, name, type, d);
     }
 
     @Test
@@ -125,6 +131,39 @@ class ReplyTargetTest {
         List<RecordedRequest> requests = requests(2);
         assertEquals(1L, body(requests.get(0)).get("msg_seq").getAsLong());
         assertEquals(2L, body(requests.get(1)).get("msg_seq").getAsLong());
+    }
+
+    @Test
+    void aMessageEventWithoutAMessageIdIsAnErrorNotAnUnsolicitedSend() throws Exception {
+        // 消息事件没有 d.id 是异常，不该悄悄改成主动发送 —— 那会占主动额度，或在用户关掉主动消息时被拒。
+        server.enqueue(new MockResponse().setBody("{\"ret\":0}"));
+        QQEvent noId = event("GROUP_AT_MESSAGE_CREATE", "{\"group_openid\":\"G7\"}");
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> ReplyTarget.GROUP.send(client, noId, MessageBuilder.of("pong"), new ReplySequence()));
+        assertTrue(error.getMessage().contains("no message id"), error.getMessage());
+        assertEquals(0, server.getRequestCount(), "抛了就不该真的发出去");
+    }
+
+    @Test
+    void aNonMessageDispatchIsSentAsTheCallerBuiltIt() throws Exception {
+        // 交互之类的非消息事件走 event_id（与 msg_id 二选一）—— 这时候不能去动 builder。
+        server.enqueue(new MockResponse().setBody("{\"ret\":0}"));
+        QQEvent interaction = event("GROUP_ADD_ROBOT", "{\"group_openid\":\"G7\"}");
+        ReplyTarget.GROUP.send(client, interaction,
+                MessageBuilder.of("欢迎").replyToEvent(interaction), new ReplySequence());
+
+        JsonObject body = body(requests(1).get(0));
+        assertEquals(interaction.eventId(), body.get("event_id").getAsString(), "event_id 要用信封的 id");
+        assertFalse(body.has("msg_id"), "非消息事件不该冒出一个 msg_id：" + body);
+        assertFalse(body.has("msg_seq"), body.toString());
+    }
+
+    @Test
+    void replyToRejectsANonMessageEventAndPointsAtReplyToEvent() {
+        QQEvent interaction = event("GROUP_ADD_ROBOT", "{\"group_openid\":\"G7\",\"id\":\"EVENT-ISH\"}");
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> MessageBuilder.of("x").replyTo(interaction));
+        assertTrue(error.getMessage().contains("replyToEvent"), error.getMessage());
     }
 
     @Test
