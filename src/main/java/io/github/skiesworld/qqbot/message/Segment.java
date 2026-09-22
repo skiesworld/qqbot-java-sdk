@@ -21,8 +21,12 @@ public sealed interface Segment {
     }
 
     /**
-     * A mentioned user from {@code mentions[]}. The group events already strip the {@code @机器人} prefix from
-     * {@code content}, so a mention is known to exist but not where it sat.
+     * A mentioned user from {@code mentions[]}.
+     *
+     * <p>Whether the {@code @机器人} marker is still in {@code content} depends on the bot: the docs say the
+     * platform strips it, and for some it does — but not for all (measured: a real group bot received
+     * {@code "<@D602A5A6...> 123"}). {@code QQMessageEvent.content()} therefore takes out the tokens
+     * {@code mentions} vouches for, and this list says who was named either way.
      */
     record Mention(User user) implements Segment {
     }

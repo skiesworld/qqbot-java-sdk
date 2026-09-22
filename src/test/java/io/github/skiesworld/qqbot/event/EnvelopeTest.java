@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,6 +43,69 @@ class EnvelopeTest {
     void stopBot() throws IOException {
         bot.close();
         server.close();
+    }
+
+    @Test
+    void aMentionThePlatformLeftInTheTextIsTakenOut() {
+        // 真机抓到的原文：这个 bot 的 @ 事件正文里 <@...> 还在 —— 文档说平台会剥掉，实测没有。
+        // 所以这里按 mentions 认领的 id 剥，两边行为都能对上。
+        QQMessageEvent msg = assertInstanceOf(QQMessageEvent.class, dispatch("GROUP_AT_MESSAGE_CREATE",
+                "{\"id\":\"MSG1\",\"content\":\"<@D602A5A6CCFA90A8EE4851D2512E43D1> 123\","
+                        + "\"group_openid\":\"GROUP1\","
+                        + "\"mentions\":[{\"id\":\"D602A5A6CCFA90A8EE4851D2512E43D1\","
+                        + "\"member_openid\":\"D602A5A6CCFA90A8EE4851D2512E43D1\",\"bot\":true}],"
+                        + "\"author\":{\"member_openid\":\"MEMBER1\",\"member_role\":\"owner\"}}"));
+
+        assertEquals("123", msg.content(), "标记要拿掉，它留下的那个前导空格也要拿掉");
+        assertEquals(1, msg.mentions().size(), "信息不丢：还是知道提到了谁");
+        assertTrue(msg.addressedToBot(), "这就是 @ 事件本身 —— 按构造就是发给它的");
+    }
+
+    @Test
+    void aMentionThePlatformAlreadyStrippedIsLeftAlone() {
+        QQMessageEvent msg = assertInstanceOf(QQMessageEvent.class, dispatch("GROUP_AT_MESSAGE_CREATE",
+                "{\"id\":\"MSG1\",\"content\":\" /签到 \",\"group_openid\":\"GROUP1\","
+                        + "\"mentions\":[{\"id\":\"D602A5A6CCFA90A8EE4851D2512E43D1\",\"bot\":true}],"
+                        + "\"author\":{\"member_openid\":\"MEMBER1\"}}"));
+
+        assertEquals(" /签到 ", msg.content(), "没有标记可剥时一个字都不动（连前导空格都不动）");
+    }
+
+    @Test
+    void groupWideModeFallsBackToTheMentionsList() {
+        // 全量模式把每条群消息都推过来，所以"是不是在叫我"只能靠 mentions。
+        QQMessageEvent plain = assertInstanceOf(QQMessageEvent.class, dispatch("GROUP_MESSAGE_CREATE",
+                "{\"id\":\"MSG1\",\"content\":\"大家早\",\"group_openid\":\"GROUP1\","
+                        + "\"author\":{\"member_openid\":\"MEMBER1\"}}"));
+        assertFalse(plain.addressedToBot());
+
+        QQMessageEvent named = assertInstanceOf(QQMessageEvent.class, dispatch("GROUP_MESSAGE_CREATE",
+                "{\"id\":\"MSG2\",\"content\":\"<@D602A5A6CCFA90A8EE4851D2512E43D1> 123\","
+                        + "\"group_openid\":\"GROUP1\","
+                        + "\"mentions\":[{\"id\":\"D602A5A6CCFA90A8EE4851D2512E43D1\",\"bot\":true}],"
+                        + "\"author\":{\"member_openid\":\"MEMBER1\"}}"));
+        assertTrue(named.addressedToBot());
+        assertEquals("123", named.content());
+    }
+
+    @Test
+    void aDirectMessageIsAlwaysAddressedToTheBot() {
+        QQMessageEvent msg = assertInstanceOf(QQMessageEvent.class, dispatch("C2C_MESSAGE_CREATE",
+                "{\"id\":\"MSG1\",\"content\":\"hi\",\"user_openid\":\"USER1\"}"));
+        assertTrue(msg.addressedToBot(), "私聊按定义就是跟它说话");
+    }
+
+    @Test
+    void aLiteralTokenThatIsNotAMentionStays() {
+        QQMessageEvent msg = assertInstanceOf(QQMessageEvent.class, dispatch("GROUP_AT_MESSAGE_CREATE",
+                "{\"id\":\"MSG1\",\"content\":\"<@OTHER> 你看 <@D602A5A6CCFA90A8EE4851D2512E43D1>\","
+                        + "\"group_openid\":\"GROUP1\","
+                        + "\"mentions\":[{\"id\":\"D602A5A6CCFA90A8EE4851D2512E43D1\",\"bot\":true}],"
+                        + "\"author\":{\"member_openid\":\"MEMBER1\"}}"));
+
+        // 末尾那个空格是中间那个 mention 被拿走留下的 —— 只剥标记本身，不替用户重排句子。
+        assertEquals("<@OTHER> 你看 ", msg.content(),
+                "mentions 没认领的 <@...> 是正文的一部分，不动它；被剥掉那个留下的空格留着");
     }
 
     private QQEvent dispatch(String name, String payload) {
