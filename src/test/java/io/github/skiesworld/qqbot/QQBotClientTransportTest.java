@@ -230,7 +230,7 @@ class QQBotClientTransportTest {
 
         @On(EventType.C2C_MESSAGE_CREATE)
         public void onMessage(io.github.skiesworld.qqbot.event.model.C2CMessageCreate msg, QQEvent raw) {
-            hits.add(msg.content + "/" + raw.id());
+            hits.add(msg.content + "/" + raw.eventId());
         }
 
         @On(EventType.FRIEND_ADD)

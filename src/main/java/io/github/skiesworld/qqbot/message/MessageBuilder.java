@@ -95,7 +95,7 @@ public final class MessageBuilder {
     /**
      * Reply to the message an event carried, as a passive message.
      *
-     * <p>Quotes the <b>message</b> id (the payload's {@code id}), not {@link QQEvent#id()} — the latter is the
+     * <p>Quotes the <b>message</b> id (the payload's {@code id}), not {@link QQEvent#eventId()} — the latter is the
      * event id, and a message reply that carries it is refused with {@code 40034024 请求参数msg_id无效或越权}.
      * Use {@link #replyToEvent(QQEvent)} when the event id is the one that belongs in the request.
      */
@@ -116,7 +116,7 @@ public final class MessageBuilder {
     }
 
     public MessageBuilder replyToEvent(QQEvent event) {
-        return replyToEvent(event.id());
+        return replyToEvent(event.eventId());
     }
 
     /** {@code msg_seq}: any value, as long as it has not been used for the same {@code msg_id} before. */

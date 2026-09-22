@@ -71,7 +71,7 @@ class BotHandlersProcessorTest {
 
                     @On(EventType.C2C_MESSAGE_CREATE)
                     public void onC2c(C2CMessageCreate msg, QQEvent raw) {
-                        HITS.add(msg.content + "/" + raw.id());
+                        HITS.add(msg.content + "/" + raw.eventId());
                     }
                 }
                 """);

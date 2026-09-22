@@ -92,7 +92,7 @@ class GatewayTest {
         assertTrue(got.await(5, TimeUnit.SECONDS), "event never reached the bus");
         assertEquals(1, received.size());
         QQEvent event = received.get(0);
-        assertEquals("EV3", event.id());
+        assertEquals("EV3", event.eventId());
         assertEquals(3L, event.seq());
         assertEquals("hi", event.rawObject().get("content").getAsString());
         assertEquals("U1", event.conversationId());
