@@ -49,7 +49,7 @@ class ReplyTargetTest {
 
     private static QQEvent event(String name, String json) {
         JsonObject d = json == null ? null : Json.parseLenient(json).getAsJsonObject();
-        return new QQEvent("MSG1", 0, 1L, name, EventType.from(name), d);
+        return new QQEvent("EVENT1", 0, 1L, name, EventType.from(name), d);
     }
 
     @Test
@@ -92,13 +92,13 @@ class ReplyTargetTest {
         for (int i = 0; i < 4; i++) {
             server.enqueue(new MockResponse().setBody("{\"id\":\"SENT\",\"ret\":0}"));
         }
-        ReplyTarget.C2C.send(client, event("C2C_MESSAGE_CREATE", "{\"author\":{\"user_openid\":\"U7\"}}"),
+        ReplyTarget.C2C.send(client, event("C2C_MESSAGE_CREATE", "{\"id\":\"MSG1\",\"author\":{\"user_openid\":\"U7\"}}"),
                 MessageBuilder.of("pong"), new ReplySequence());
-        ReplyTarget.GROUP.send(client, event("GROUP_AT_MESSAGE_CREATE", "{\"group_openid\":\"G7\"}"),
+        ReplyTarget.GROUP.send(client, event("GROUP_AT_MESSAGE_CREATE", "{\"id\":\"MSG1\",\"group_openid\":\"G7\"}"),
                 MessageBuilder.of("pong"), new ReplySequence());
-        ReplyTarget.CHANNEL.send(client, event("AT_MESSAGE_CREATE", "{\"channel_id\":\"C7\"}"),
+        ReplyTarget.CHANNEL.send(client, event("AT_MESSAGE_CREATE", "{\"id\":\"MSG1\",\"channel_id\":\"C7\"}"),
                 MessageBuilder.of("pong"), new ReplySequence());
-        ReplyTarget.DIRECT.send(client, event("DIRECT_MESSAGE_CREATE", "{\"guild_id\":\"D7\"}"),
+        ReplyTarget.DIRECT.send(client, event("DIRECT_MESSAGE_CREATE", "{\"id\":\"MSG1\",\"guild_id\":\"D7\"}"),
                 MessageBuilder.of("pong"), new ReplySequence());
 
         List<RecordedRequest> requests = requests(4);
@@ -106,7 +106,7 @@ class ReplyTargetTest {
                 "/dms/D7/messages"), requests.stream().map(RecordedRequest::getPath).toList());
         JsonObject c2c = body(requests.get(0));
         assertEquals(0L, c2c.get("msg_type").getAsLong());
-        assertEquals("MSG1", c2c.get("msg_id").getAsString(), "the dispatch id is what a passive reply quotes");
+        assertEquals("MSG1", c2c.get("msg_id").getAsString(), "被动回复引的是消息自己的 id（d.id），不是信封的 id");
         assertEquals(1L, c2c.get("msg_seq").getAsLong());
         assertEquals("pong", c2c.get("content").getAsString());
         assertTrue(body(requests.get(1)).has("msg_seq"));
@@ -118,7 +118,7 @@ class ReplyTargetTest {
     void aSecondReplyToTheSameMessageNeedsAnotherSequence() throws Exception {
         server.enqueue(new MockResponse().setBody("{\"id\":\"S1\"}"));
         server.enqueue(new MockResponse().setBody("{\"id\":\"S2\"}"));
-        QQEvent group = event("GROUP_AT_MESSAGE_CREATE", "{\"group_openid\":\"G7\"}");
+        QQEvent group = event("GROUP_AT_MESSAGE_CREATE", "{\"id\":\"MSG1\",\"group_openid\":\"G7\"}");
         ReplySequence sequences = new ReplySequence();
         ReplyTarget.GROUP.send(client, group, MessageBuilder.of("第一句"), sequences);
         ReplyTarget.GROUP.send(client, group, MessageBuilder.of("第二句"), sequences);
