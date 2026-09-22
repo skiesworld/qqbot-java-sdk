@@ -98,7 +98,7 @@ class WebhookServerTest {
         assertEquals(1, seen.size());
         assertEquals("C2C_MESSAGE_CREATE", seen.get(0).name());
         assertEquals(7L, seen.get(0).seq());
-        assertEquals("E1", seen.get(0).id());
+        assertEquals("E1", seen.get(0).eventId());
         assertEquals("你好", seen.get(0).rawObject().get("content").getAsString());
     }
 

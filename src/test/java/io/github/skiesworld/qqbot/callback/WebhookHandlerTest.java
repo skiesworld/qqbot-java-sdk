@@ -61,7 +61,7 @@ class WebhookHandlerTest {
         String ack = new WebhookHandler(SECRET, APPID, bus).handle(body, h.timestamp, h.signature, APPID);
         assertEquals(WebhookHandler.ACK, ack);
         assertEquals(1, received.size());
-        assertEquals("E1", received.get(0).id());
+        assertEquals("E1", received.get(0).eventId());
         assertEquals(42L, received.get(0).seq());
         assertEquals("hello", received.get(0).rawObject().get("content").getAsString());
     }

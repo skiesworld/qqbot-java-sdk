@@ -94,6 +94,6 @@ public final class OnContext {
 
     @Override
     public String toString() {
-        return "OnContext{" + command + " rest=" + rest + " id=" + message.id() + "}";
+        return "OnContext{" + command + " rest=" + rest + " id=" + message.eventId() + "}";
     }
 }

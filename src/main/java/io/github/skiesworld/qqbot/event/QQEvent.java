@@ -42,8 +42,17 @@ public class QQEvent {
         this.outbound = outbound;
     }
 
-    /** Event id. Passive replies pass it as {@code event_id}. */
-    public String id() {
+    /**
+     * The <b>event</b> id — the gateway envelope's {@code id}, e.g. {@code GROUP_MESSAGE_CREATE:0d2kq...}.
+     *
+     * <p>⚠️ Not the message id. A message's own id is {@link QQMessageEvent#messageId()} (the payload's
+     * {@code id}, what the platform calls {@code d.id}). They are different values, and putting this one in a
+     * message reply's {@code msg_id} is refused with {@code 40034024 请求参数msg_id无效或越权}.
+     *
+     * <p>This is what goes in {@code event_id}, which only {@code INTERACTION_CREATE},
+     * {@code GROUP_ADD_ROBOT} and {@code GROUP_MSG_RECEIVE} accept.
+     */
+    public String eventId() {
         return id;
     }
 

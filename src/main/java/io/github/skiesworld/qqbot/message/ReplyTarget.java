@@ -92,7 +92,11 @@ public enum ReplyTarget {
             throw new IllegalStateException("cannot reply to " + event.name() + ": the payload identifies no "
                     + "conversation this SDK can send to");
         }
-        String messageId = event.id();
+        // 被动回复的 msg_id 必须是**消息自己的 id**（payload 的 id，也就是 d.id）。
+        // 信封最外层的 id 是"事件 id"，平台只对 INTERACTION_CREATE / GROUP_ADD_ROBOT /
+        // GROUP_MSG_RECEIVE 三种事件接受它（那是 event_id 字段，与 msg_id 二选一）——
+        // 消息事件不在其列。用错的话平台回 40034024「请求参数msg_id无效或越权」。
+        String messageId = text(event.rawObject(), "id");
         MessageBuilder reply = Strings.isBlank(messageId)
                 ? body
                 : body.replyTo(messageId).seq(sequence.next(messageId));

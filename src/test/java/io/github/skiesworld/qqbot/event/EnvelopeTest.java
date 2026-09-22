@@ -140,6 +140,13 @@ class EnvelopeTest {
         RecordedRequest second = server.takeRequest();
         assertTrue(first.getPath().endsWith("/v2/users/USER1/messages"), first.getPath());
         assertTrue(second.getBody().readUtf8().contains("\"msg_seq\":2"), second.getBody().readUtf8());
+
+        // 被动回复的 msg_id 是**消息自己的 id**（d.id = "MSG1"），不是信封的 id（dispatch 传的 "E1"）。
+        // 用错平台会回 40034024「请求参数msg_id无效或越权」—— 而且这个错只有真机才看得出来。
+        String firstBody = first.getBody().readUtf8();
+        assertTrue(firstBody.contains("\"msg_id\":\"MSG1\""),
+                "msg_id 要用 payload 的 id，而不是信封的 id：" + firstBody);
+        assertFalse(firstBody.contains("\"msg_id\":\"E1\""), firstBody);
     }
 
     @Test
