@@ -11,6 +11,8 @@ import io.github.skiesworld.qqbot.model.request.SendChannelMessageRequest;
 import io.github.skiesworld.qqbot.model.request.SendGroupMessageRequest;
 import io.github.skiesworld.qqbot.util.Strings;
 
+import com.google.gson.JsonElement;
+
 import java.util.Objects;
 
 /**
@@ -90,9 +92,20 @@ public final class MessageBuilder {
         return this;
     }
 
-    /** Reply to the message an event carried, as a passive message. */
+    /**
+     * Reply to the message an event carried, as a passive message.
+     *
+     * <p>Quotes the <b>message</b> id (the payload's {@code id}), not {@link QQEvent#id()} — the latter is the
+     * event id, and a message reply that carries it is refused with {@code 40034024 请求参数msg_id无效或越权}.
+     * Use {@link #replyToEvent(QQEvent)} when the event id is the one that belongs in the request.
+     */
     public MessageBuilder replyTo(QQEvent event) {
-        return replyTo(event.id());
+        JsonElement id = event.rawObject().get("id");
+        if (id == null || id.isJsonNull() || !id.isJsonPrimitive()) {
+            throw new IllegalArgumentException("this event carries no message id (payload id): " + event.name()
+                    + " — use replyToEvent for dispatches that answer an event id");
+        }
+        return replyTo(id.getAsString());
     }
 
     /** Answer an event by id, for interactions and other non-message dispatches. */

@@ -116,6 +116,19 @@ public class QQMessageEvent extends QQEvent {
         return mentionedBot();
     }
 
+    /**
+     * The id of the message itself — the payload's {@code id}, what the platform calls {@code d.id}.
+     *
+     * <p>⚠️ Not {@link #id()}: that is the <em>event</em> id (the envelope's {@code id}, e.g.
+     * {@code GROUP_MESSAGE_CREATE:0d2kq...}). The two are different values, and a passive reply must quote
+     * this one — the platform answers a message reply that carries the event id with
+     * {@code 40034024 请求参数msg_id无效或越权}. Only {@code replyToEvent} wants the event id, and only for
+     * the three dispatches that accept an {@code event_id}.
+     */
+    public String messageId() {
+        return EventValues.text(rawObject(), "id");
+    }
+
     /** The sender, or null when the payload reports none — which the message events always do. */
     public User author() {
         JsonElement author = rawObject().get("author");
