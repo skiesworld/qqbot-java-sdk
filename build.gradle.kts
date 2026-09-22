@@ -46,7 +46,12 @@ tasks.withType<Javadoc>().configureEach {
     (options as StandardJavadocDocletOptions).encoding = "UTF-8"
     (options as StandardJavadocDocletOptions).charSet = "UTF-8"
     (options as StandardJavadocDocletOptions).docEncoding = "UTF-8"
-    (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
+    (options as StandardJavadocDocletOptions).apply {
+        // ⚠️ 不要用 Xdoclint:none —— 它会把**引用校验**也关掉，而 {@link} 指向不存在的方法时，
+        // 本地 javadoc 会"成功"，发布时却被 Maven Central 的校验打回（v0.0.6 就是这么挂的）。
+        // 只开 reference：挡得住坏链接，又不引入风格类噪音。
+        addStringOption("Xdoclint:reference", "-quiet")
+    }
 }
 
 tasks.test {
